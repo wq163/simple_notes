@@ -26,18 +26,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag notes:$(date +%s)
+      run: 
+        IMAGE_NAME="notes"
+        TAG="${{ github.sha }}" 
+        FULL_NAME="${IMAGE_NAME}:${TAG}"
+        FILENAME="${IMAGE_NAME}-${TAG}.tar.gz"
+        docker build . --file Dockerfile --tag ${FULL_NAME}
 
-    - name: Save Docker Image to Tarball
-      run: |
-        # 将镜像保存为 tar 文件并压缩
-        docker save notes:$(date +%s) | gzip > notes-$(date +%s).tar.gz
+        docker save ${FULL_NAME} | gzip > ${FILENAME}
+
+        echo "IMAGE_FILENAME=$FILENAME" >> $GITHUB_ENV
 
     - name: Upload Tarball
       uses: actions/upload-artifact@v4
       with:
         name: notes-image
-        path: notes-*.tar.gz
+        path: ${{ env.IMAGE_FILENAME }}
 
     # - name: Create GitHub Release
     #   uses: softprops/action-gh-release@v2
