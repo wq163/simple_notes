@@ -26,14 +26,12 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
-
-
 # Copy only the built output and config from the builder stage
-# COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
 COPY config ./config
 COPY package.json package-lock.json* ./
+COPY --from=builder /app/dist ./dist
+
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 
 
 # 安装 gosu 用于在 entrypoint 中安全降权
