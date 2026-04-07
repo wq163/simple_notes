@@ -1,0 +1,21 @@
+{
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
+  "data": {
+    "dir": "./data"
+  },
+  "jwt": {
+    "secret": "simple-notes-jwt-secret-change-me",
+    "expiresIn": "24h",
+    "rememberMeExpiresIn": "30d"
+  },
+  "upload": {
+    "maxFileSize": 20971520
+  },
+  "admin": {
+    "defaultUsername": "jenwang",
+    "defaultPassword": "jenwang"
+  }
+}

@@ -1,0 +1,10 @@
+services:
+  notes-app:
+    image: notes
+    container_name: notes
+    restart: unless-stopped
+    ports:
+      - "9001:3000"
+    volumes:
+      - /data/docker/notes/data/data:/app/data
+      - /data/docker/notes/data/config:/app/config
