@@ -10,7 +10,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy package setup
-COPY package.json package-lock.json* ./
+COPY . .
 
 # Install ONLY production dependencies 
 # (Important: This recompiles native bindings like better-sqlite3 for slim Linux)
