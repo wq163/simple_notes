@@ -2,9 +2,20 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags:
+      - "v*" # 当推送到以 v 开头的标签（如 v1.0.1）时触发
+  workflow_dispatch:
+    # Inputs the workflow accepts.
+    inputs:
+      name:
+        # Friendly description to be shown in the UI instead of 'name'
+        description: 'Person to greet'
+        # Default value if no value is explicitly provided
+        default: 'World'
+        # Input has to be provided for the workflow to run
+        required: false
+        # The data type of the input
+        type: string
 
 jobs:
 
@@ -16,3 +27,25 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag notes:$(date +%s)
+
+    - name: Save Docker Image to Tarball
+      run: |
+        # 将镜像保存为 tar 文件并压缩
+        docker save notes:$(date +%s) | gzip > notes-$(date +%s).tar.gz
+
+    - name: Upload Tarball
+      uses: actions/upload-artifact@v4
+      with:
+        name: notes-image
+        path: notes-*.tar.gz
+
+    # - name: Create GitHub Release
+    #   uses: softprops/action-gh-release@v2
+    #   with:
+    #     files: notes-*.tar.gz
+    #     name: Release ${{ github.ref_name }}
+    #     draft: false
+    #     prerelease: false
+    #     generate_release_notes: true # 自动生成变更日志
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
