@@ -5,12 +5,16 @@ FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy package setup
 COPY package.json package-lock.json* ./
 
 # Install ONLY production dependencies 
 # (Important: This recompiles native bindings like better-sqlite3 for slim Linux)
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 RUN npm run build
 
@@ -22,17 +26,20 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 
-# 安装 gosu 用于在 entrypoint 中安全降权
-RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends gosu && \
-    rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
+
 
 # Copy only the built output and config from the builder stage
-COPY --from=builder /app/node_modules ./node_modules
+# COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY config ./config
 COPY package.json package-lock.json* ./
+
+
+# 安装 gosu 用于在 entrypoint 中安全降权
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/*
 
 
 # 将默认配置备份到不会被 volume 挂载覆盖的位置
