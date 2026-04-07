@@ -9,11 +9,11 @@ on:
     inputs:
       name:
         # Friendly description to be shown in the UI instead of 'name'
-        description: 'Person to greet'
+        description: '输入镜像版本号'
         # Default value if no value is explicitly provided
-        default: 'World'
+        default: 'manual-latest'
         # Input has to be provided for the workflow to run
-        required: false
+        required: true
         # The data type of the input
         type: string
 
@@ -22,15 +22,20 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 必须赋予写入权限以创建 Release
+    # 在这里定义整个 Job 通用的环境变量
+    env:
+      # 核心逻辑：如果有手动输入则用输入值，否则用 Git 引用名（分支/标签名）
+      IMAGE_TAG: ${{ github.event.inputs.name || github.ref_name }}
+      IMAGE_NAME: "notes"
 
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image
       run: |
-        IMAGE_NAME="notes"
-        TAG="${{ github.sha }}" 
-        FULL_NAME="${IMAGE_NAME}:${TAG}"
-        FILENAME="${IMAGE_NAME}-${TAG}.tar.gz"
+        FULL_NAME="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+        FILENAME="${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}.tar.gz"
         docker build . --file Dockerfile --tag ${FULL_NAME}
 
         docker save ${FULL_NAME} | gzip > ${FILENAME}
@@ -46,7 +51,7 @@ jobs:
     # - name: Create GitHub Release
     #   uses: softprops/action-gh-release@v2
     #   with:
-    #     files: notes-*.tar.gz
+    #     files: ${{ env.IMAGE_FILENAME }}
     #     name: Release ${{ github.ref_name }}
     #     draft: false
     #     prerelease: false
