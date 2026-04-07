@@ -4,7 +4,7 @@
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
 # 定义压缩包的名称
-OUTPUT="simplenotes-${TIMESTAMP}.tar.gz"
+OUTPUT="dist/simplenotes-${TIMESTAMP}.tar.gz"
 
 echo "开始打包项目文件..."
 echo "目标压缩包：${OUTPUT}"
