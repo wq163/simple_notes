@@ -26,7 +26,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image
-      run: 
+      run: |
         IMAGE_NAME="notes"
         TAG="${{ github.sha }}" 
         FULL_NAME="${IMAGE_NAME}:${TAG}"
