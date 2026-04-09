@@ -31,8 +31,15 @@ jobs:
       IMAGE_NAME: "notes"
     
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
+    - name: Login to ACR
+      uses: docker/login-action@v4
+      with:
+        registry: crpi-smvzawrxwvafun93.cn-hangzhou.personal.cr.aliyuncs.com
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - uses: actions/checkout@v5
+    - name: Build the Docker image and push to ACR
       run: |
         FULL_NAME="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
         FILENAME="${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}.tar.gz"
@@ -43,8 +50,10 @@ jobs:
 
         docker save ${FULL_NAME} | gzip > ${FILENAME}
 
+        docker push crpi-smvzawrxwvafun93.cn-hangzhou.personal.cr.aliyuncs.com/iostat/${FULL_NAME}
+
     - name: Upload Tarball
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}
         path: ${{ env.FILENAME }}
@@ -55,9 +64,13 @@ jobs:
     #   uses: softprops/action-gh-release@v2
     #   with:
     #     files: ${{ env.FILENAME }}
-    #     name: Release ${{ github.ref_name }}
+    #     name: Release ${{ env.IMAGE_TAG }}
     #     draft: false
     #     prerelease: false
     #     generate_release_notes: true # 自动生成变更日志
     #   env:
     #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+    
