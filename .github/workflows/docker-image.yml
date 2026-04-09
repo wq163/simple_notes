@@ -43,14 +43,19 @@ jobs:
       run: |
         FULL_NAME="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
         FILENAME="${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}.tar.gz"
+        ACR_FULL="crpi-smvzawrxwvafun93.cn-hangzhou.personal.cr.aliyuncs.com/iostat/${FULL_NAME}"
+        GHCR_FULL="ghcr.io/${{ github.repository }}:${{ env.IMAGE_TAG }}" # 建议用 lower 转换小写
+        
         echo "FULL_NAME=$FULL_NAME" >> $GITHUB_ENV
         echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+        echo "ACR_FULL=$ACR_FULL" >> $GITHUB_ENV
 
-        docker build . --file Dockerfile --tag ${FULL_NAME}
+        docker build . --file Dockerfile --tag ${ACR_FULL} # --tag ${GHCR_FULL}
 
-        docker save ${FULL_NAME} | gzip > ${FILENAME}
+        docker save ${ACR_FULL} | gzip > ${FILENAME}
 
-        docker push crpi-smvzawrxwvafun93.cn-hangzhou.personal.cr.aliyuncs.com/iostat/${FULL_NAME}
+        docker push ${ACR_FULL} 
+        # docker push ${GHCR_FULL}
 
     - name: Upload Tarball
       uses: actions/upload-artifact@v5
