@@ -29,20 +29,19 @@ jobs:
       # 核心逻辑：如果有手动输入则用输入值，否则用 Git 引用名（分支/标签名）
       IMAGE_TAG: ${{ github.event.inputs.name || github.ref_name }}
       IMAGE_NAME: "notes"
-      FULL_NAME: "${IMAGE_NAME}:${IMAGE_TAG}"
-      FILENAME: "${IMAGE_NAME}-${IMAGE_TAG}.tar.gz"
-
+    
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image
       run: |
-        # FULL_NAME="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
-        # FILENAME="${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}.tar.gz"
+        FULL_NAME="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+        FILENAME="${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}.tar.gz"
+        echo "FULL_NAME=$FULL_NAME" >> $GITHUB_ENV
+        echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+
         docker build . --file Dockerfile --tag ${{ env.FULL_NAME}}
 
         docker save ${{ env.FULL_NAME}} | gzip > ${{ env.FILENAME}}
-
-        # echo "IMAGE_FILENAME=$FILENAME" >> $GITHUB_ENV
 
     - name: Upload Tarball
       uses: actions/upload-artifact@v4
