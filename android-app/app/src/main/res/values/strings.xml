@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Simple Notes</string>
+    <string name="settings_title">设置服务器地址</string>
+    <string name="server_url_hint">例如: http://192.168.1.100:3000</string>
+    <string name="save_button">保存并重启</string>
+    <string name="network_error">无法连接到服务器或加载超时</string>
+    <string name="change_server">修改服务器地址</string>
+    <string name="shortcut_settings_short">设置</string>
+    <string name="shortcut_settings_long">设置服务器地址</string>
+</resources>
