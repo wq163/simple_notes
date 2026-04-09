@@ -46,8 +46,10 @@ jobs:
     - name: Upload Tarball
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.FULL_NAME}}
+        name: ${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}
         path: ${{ env.FILENAME }}
+        # 设置为 0 表示不进行压缩，直接上传
+        compression-level: 0
 
     # - name: Create GitHub Release
     #   uses: softprops/action-gh-release@v2
