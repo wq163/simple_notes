@@ -39,9 +39,9 @@ jobs:
         echo "FULL_NAME=$FULL_NAME" >> $GITHUB_ENV
         echo "FILENAME=$FILENAME" >> $GITHUB_ENV
 
-        docker build . --file Dockerfile --tag ${{ env.FULL_NAME}}
+        docker build . --file Dockerfile --tag ${FULL_NAME}
 
-        docker save ${{ env.FULL_NAME}} | gzip > ${{ env.FILENAME}}
+        docker save ${FULL_NAME} | gzip > ${FILENAME}
 
     - name: Upload Tarball
       uses: actions/upload-artifact@v4
