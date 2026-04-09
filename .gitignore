@@ -96,3 +96,13 @@ work/
 # Operating System files
 .DS_Store
 Thumbs.db
+
+# Android / Gradle Build Objects
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+android-app/gradle/wrapper/gradle-wrapper.jar
+android-app/.cxx/
+*.apk
+*.aab
