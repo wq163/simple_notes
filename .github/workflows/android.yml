@@ -18,6 +18,9 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./android-app  # 替换成你 gradlew 所在的实际路径
     
     env:
       # 核心逻辑：如果有手动输入则用输入值，否则用 Git 引用名（分支/标签名）
