@@ -40,10 +40,13 @@ jobs:
       run: chmod +x gradlew
     - name: Build with Gradle
       run: ./gradlew assembleDebug
+    - name: 打印 APK 实际路径 (调试用)
+      run: find . -name "*.apk"
       
     - name: Upload Tarball
       uses: actions/upload-artifact@v5
       with:
         name: ${{ env.APK_NAME }}-${{ env.APK_TAG }}
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: "**/build/outputs/apk/debug/*.apk"
+        if-no-files-found: error # 如果还是找不到，直接报错而不是只发警告，方便调试
     
