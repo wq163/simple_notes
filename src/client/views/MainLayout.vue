@@ -509,6 +509,7 @@ onMounted(async () => {
 
   .content-area.editing-mode {
     padding: 0;
+    background: var(--color-bg-secondary);
   }
 
   .mobile-hidden {
@@ -516,35 +517,35 @@ onMounted(async () => {
   }
 
   .top-bar {
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    border-bottom: 1px solid var(--color-border-light);
+    background: #3E7983;
+    color: #ffffff;
+    border-bottom: none;
     padding: var(--spacing-sm) var(--spacing-md);
   }
 
   .hamburger {
-    color: var(--color-text-primary);
+    color: #ffffff;
   }
 
   .topbar-title {
     flex: 1;
     font-size: var(--font-size-lg);
     font-weight: 700;
-    color: var(--color-text-primary);
+    color: #ffffff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .topbar-search-btn {
-    color: var(--color-text-secondary);
+    color: #ffffff;
     font-size: 18px;
   }
 
   .mobile-search-bar {
     padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
-    background: var(--color-bg-primary);
-    border-bottom: 1px solid var(--color-border-light);
+    background: #3E7983;
+    border-bottom: none;
   }
 
   .mobile-search-bar .search-bar {

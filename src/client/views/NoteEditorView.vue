@@ -222,13 +222,13 @@ onMounted(async () => {
   .editor-view {
     border-radius: 0;
     min-height: 100%;
-    background: var(--color-bg-primary);
+    background: var(--color-bg-secondary);
   }
 
   .editor-header {
     border-bottom: 1px solid var(--color-border-light);
     padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-bg-primary);
+    background: var(--color-bg-secondary);
     padding-bottom: var(--spacing-sm);
   }
 

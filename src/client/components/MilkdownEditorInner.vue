@@ -20,7 +20,8 @@ import { toggleStrikethroughCommand } from '@milkdown/preset-gfm';
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
 
-import { shallowRef } from 'vue';
+import { shallowRef, ref } from 'vue';
+const showFolded = ref(false);
 
 const props = defineProps<{
   defaultValue: string;
@@ -203,18 +204,19 @@ async function onFilePicked(event: Event) {
     <!-- Static Toolbar -->
     <div class="editor-toolbar">
       <button class="toolbar-btn font-bold" @mousedown.prevent="execCommand(toggleStrongCommand.key)" title="加粗 (Ctrl+B)">B</button>
-      <button class="toolbar-btn italic" @mousedown.prevent="execCommand(toggleEmphasisCommand.key)" title="斜体 (Ctrl+I)">I</button>
       <button class="toolbar-btn line-through" @mousedown.prevent="execCommand(toggleStrikethroughCommand.key)" title="删除线">S</button>
       <div class="toolbar-divider"></div>
       <button class="toolbar-btn" @mousedown.prevent="toggleList('bullet')" title="无序列表">• </button>
       <button class="toolbar-btn" @mousedown.prevent="toggleList('ordered')" title="有序列表">1. </button>
       <button class="toolbar-btn" @mousedown.prevent="toggleList('task')" title="待办清单">☑</button>
       <div class="toolbar-divider"></div>
-      <button class="toolbar-btn" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 2)" title="标题 (H2)">H2</button>
-      <button class="toolbar-btn" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 3)" title="标题 (H3)">H3</button>
-      <div class="toolbar-divider"></div>
       <button class="toolbar-btn" @mousedown.prevent="triggerImagePick()" title="插入图片">🖼️</button>
-      <button class="toolbar-btn" @mousedown.prevent="triggerFilePick()" title="上传附件">📎</button>
+      <button class="toolbar-btn mobile-more-btn font-bold" @mousedown.prevent="showFolded = !showFolded" title="更多选项" style="font-size:18px;">⋯</button>
+      <button class="toolbar-btn foldable italic"  :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(toggleEmphasisCommand.key)" title="斜体 (Ctrl+I)">I</button>
+      <button class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 2)" title="标题 (H2)">H2</button>
+      <button class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 3)" title="标题 (H3)">H3</button>
+      <div class="toolbar-divider foldable" :class="{ 'is-open': showFolded }"></div>
+      <button class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="triggerFilePick()" title="上传附件">📎</button>
     </div>
 
     <!-- Hidden file inputs -->
@@ -236,7 +238,7 @@ async function onFilePicked(event: Event) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--color-bg-primary);
+  background: var(--color-bg-secondary);
 }
 
 .editor-toolbar {
@@ -256,7 +258,7 @@ async function onFilePicked(event: Event) {
   color: var(--color-text-primary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   transition: background 0.2s;
 }
 
@@ -311,6 +313,10 @@ async function onFilePicked(event: Event) {
   --crepe-color-outline: var(--color-border);
 }
 
+.mobile-more-btn {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .custom-editor-wrapper {
     border: none;
@@ -323,7 +329,28 @@ async function onFilePicked(event: Event) {
     order: 2;
     border-bottom: none;
     border-top: 1px solid var(--color-border);
+    padding: 8px 4px;
     padding-bottom: env(safe-area-inset-bottom, 8px);
+    gap: 4px;
+  }
+  .toolbar-btn {
+    padding: 10px 14px;
+    font-size: var(--font-size-md);
+  }
+  .mobile-more-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+  .foldable {
+    display: none !important;
+  }
+  .foldable.is-open {
+    display: inline-block !important;
+  }
+  .toolbar-divider.foldable.is-open {
+    display: block !important;
   }
 }
+
 </style>
