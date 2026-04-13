@@ -38,8 +38,17 @@ jobs:
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+    - name: 还原签名文件
+      run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > my-release-key.jks
     - name: Build with Gradle
       run: ./gradlew assembleDebug
+      env:
+        # 对应 build.gradle 中定义的环境变量名
+        SIGNING_STORE_FILE: my-release-key.jks
+        SIGNING_STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     - name: 打印 APK 实际路径 (调试用)
       run: find . -name "*.apk"
       
