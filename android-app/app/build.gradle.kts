@@ -16,7 +16,7 @@ android {
     }
 
     signingConfigs {
-        release {
+        create("release") {
             // 从环境变量读取，如果读取不到则不报错（方便本地开发）
             storeFile = file(System.getenv("SIGNING_STORE_FILE") ?: "debug.keystore")
             storePassword = System.getenv("SIGNING_STORE_PASSWORD")
@@ -27,10 +27,10 @@ android {
     buildTypes {
         debug {
             // 让 Debug 版本也使用这个签名配置，这样签名就固定了
-            signingConfig = signingConfigs.release
+            signingConfig = signingConfigs.getByName("release")
         }
         release {
-            signingConfig = signingConfigs.release
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
