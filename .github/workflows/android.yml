@@ -40,7 +40,7 @@ jobs:
       run: chmod +x gradlew
     - name: 还原签名文件
       run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > my-release-key.jks
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/my-release-key.jks
     - name: Build with Gradle
       run: ./gradlew assembleDebug
       env:
