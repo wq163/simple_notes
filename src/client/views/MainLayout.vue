@@ -517,7 +517,7 @@ onMounted(async () => {
   }
 
   .top-bar {
-    background: #3E7983;
+    background: #55A2AF;
     color: #ffffff;
     border-bottom: none;
     padding: var(--spacing-sm) var(--spacing-md);
@@ -544,7 +544,7 @@ onMounted(async () => {
 
   .mobile-search-bar {
     padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
-    background: #3E7983;
+    background: #55A2AF;
     border-bottom: none;
   }
 
