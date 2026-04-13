@@ -88,6 +88,12 @@ class MainActivity : AppCompatActivity() {
             webView.reload()
         }
 
+        // 解决 WebView 和 SwipeRefreshLayout 滚动冲突问题
+        // 只有在页面处于绝对顶部(scrollY == 0)时才允许下拉刷新
+        webView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            swipeRefreshLayout.isEnabled = (scrollY == 0)
+        }
+
         webView.loadUrl(serverUrl)
     }
 
