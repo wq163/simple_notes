@@ -217,4 +217,23 @@ onMounted(async () => {
   min-height: 0;
   overflow-y: auto;
 }
+
+@media (max-width: 768px) {
+  .editor-view {
+    border-radius: 0;
+    min-height: 100%;
+    background: var(--color-bg-primary);
+  }
+
+  .editor-header {
+    border-bottom: 1px solid var(--color-border-light);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-primary);
+    padding-bottom: var(--spacing-sm);
+  }
+
+  .editor-body {
+    padding-top: 0;
+  }
+}
 </style>

@@ -45,3 +45,5 @@ docker run --rm -v $(pwd)/android-app:/home/gradle/project -w /home/gradle/proje
 2. 填入您的后端 URL，格式如 `http://你的电脑IP:3000` 或 `https://你的域名.com`。
 3. 点击“保存”后，系统会自动拉起服务端主页，在之后的启动中也不会提示（它将会像一个纯原生的 App 一样顺畅进入页面）。
 4. 如果您的 IP 变更而造成无法打开，系统会捕获网络超时，重新展示“修改服务器地址”的按钮。您也可以选择长按桌面 App 图标进入“设置”。
+
+base64 -w 0 xx.jks | clip.exe

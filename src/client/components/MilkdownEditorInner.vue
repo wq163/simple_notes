@@ -310,4 +310,20 @@ async function onFilePicked(event: Event) {
   --crepe-color-on-surface: var(--color-text-primary);
   --crepe-color-outline: var(--color-border);
 }
+
+@media (max-width: 768px) {
+  .custom-editor-wrapper {
+    border: none;
+    border-radius: 0;
+  }
+  .editor-content-area {
+    order: 1;
+  }
+  .editor-toolbar {
+    order: 2;
+    border-bottom: none;
+    border-top: 1px solid var(--color-border);
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+  }
+}
 </style>

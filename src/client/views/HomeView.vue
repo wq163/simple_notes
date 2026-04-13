@@ -126,7 +126,7 @@
     ></div>
 
     <!-- Right Pane: Editor -->
-    <div class="editor-pane" :class="{ 'mobile-hidden': !route.query.noteId && !route.query.newNote }">
+    <div class="editor-pane" :class="{ 'mobile-hidden': !route.query.noteId && !route.query.newNote, 'mobile-editing': route.query.noteId || route.query.newNote }">
       <NoteEditorView 
         v-if="route.query.noteId || route.query.newNote"
         :key="(route.query.noteId as string) || 'new'"
@@ -448,7 +448,9 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
 
 @media (max-width: 768px) {
   .workspace-view {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
   }
 
   .notes-list-pane {
@@ -456,6 +458,13 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
     width: auto !important;
     border-right: none;
     padding-right: 0;
+    flex: 1; /* when shown and no note selected */
+  }
+
+  .editor-pane.mobile-editing {
+    flex: 1;
+    border-radius: 0;
+    height: 100%;
   }
 
   .mobile-hidden {

@@ -97,7 +97,7 @@
     <!-- Main Content -->
     <main class="main-content">
       <!-- Top Bar -->
-      <header class="top-bar">
+      <header class="top-bar" :class="{ 'mobile-hidden': isMobileEditing }">
         <button class="btn btn-ghost btn-icon hamburger" @click="sidebarOpen = !sidebarOpen">
           ☰
         </button>
@@ -141,13 +141,13 @@
       </div>
 
       <!-- Page Content -->
-      <div class="content-area">
+      <div class="content-area" :class="{ 'editing-mode': isMobileEditing }">
         <router-view />
       </div>
     </main>
 
     <!-- FAB for mobile -->
-    <router-link :to="{ path: route.path, query: { newNote: 'true' } }" class="fab mobile-only">+</router-link>
+    <router-link v-show="!isMobileEditing" :to="{ path: route.path, query: { newNote: 'true' } }" class="fab mobile-only">+</router-link>
   </div>
 </template>
 
@@ -171,6 +171,7 @@ const searchQuery = ref('');
 const mobileSearchOpen = ref(false);
 
 const isHome = computed(() => route.name === 'Home');
+const isMobileEditing = computed(() => !!route.query.noteId || !!route.query.newNote);
 
 // Mobile top bar title — mirrors the page title from HomeView
 const mobileTitle = computed(() => {
@@ -502,6 +503,16 @@ onMounted(async () => {
   .content-area {
     padding: var(--spacing-sm) var(--spacing-md);
     background: var(--color-bg-primary);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .content-area.editing-mode {
+    padding: 0;
+  }
+
+  .mobile-hidden {
+    display: none !important;
   }
 
   .top-bar {
