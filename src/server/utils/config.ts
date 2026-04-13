@@ -8,6 +8,7 @@ export interface AppConfig {
   server: {
     port: number;
     host: string;
+    baseUrl: string;
   };
   data: {
     dir: string;
@@ -30,7 +31,7 @@ let config: AppConfig | null = null;
 
 // Hardcoded fallback defaults (used when config/default.json is missing)
 const BUILTIN_DEFAULTS: AppConfig = {
-  server: { port: 3000, host: '0.0.0.0' },
+  server: { port: 3000, host: '0.0.0.0', baseUrl: '/' },
   data: { dir: './data' },
   jwt: { secret: 'simple-notes-jwt-secret-change-me', expiresIn: '24h', rememberMeExpiresIn: '30d' },
   upload: { maxFileSize: 20971520 },

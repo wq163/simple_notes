@@ -2,8 +2,11 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
 import router from '@/router';
 
+const configBase = (window as any).__APP_CONFIG__?.baseUrl || '';
+const apiBaseUrl = configBase === '/' ? '/api' : `${configBase}/api`;
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseUrl,
   timeout: 30000,
 });
 

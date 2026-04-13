@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig } from './utils/config.js';
@@ -30,43 +31,51 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+const mainRouter = express.Router();
+
 // API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', authMiddleware, userRoutes);
-app.use('/api/admin', authMiddleware, adminRoutes);
-app.use('/api/categories', authMiddleware, categoryRoutes);
-app.use('/api/tags', authMiddleware, tagRoutes);
-app.use('/api/notes', authMiddleware, noteRoutes);
+mainRouter.use('/api/auth', authRoutes);
+mainRouter.use('/api/users', authMiddleware, userRoutes);
+mainRouter.use('/api/admin', authMiddleware, adminRoutes);
+mainRouter.use('/api/categories', authMiddleware, categoryRoutes);
+mainRouter.use('/api/tags', authMiddleware, tagRoutes);
+mainRouter.use('/api/notes', authMiddleware, noteRoutes);
 // Public: serve attachments (GET) without auth - images need this for <img src="...">
 import { publicAttachmentHandler } from './routes/attachments.js';
-app.get('/api/attachments/:username/:filename', publicAttachmentHandler);
+mainRouter.get('/api/attachments/:username/:filename', publicAttachmentHandler);
 // Authenticated: upload attachments (POST)
-app.use('/api/attachments', authMiddleware, attachmentRoutes);
-app.use('/api/settings', authMiddleware, settingsRoutes);
-app.use('/api/export', authMiddleware, exportRoutes);
-app.use('/api/admin/backup', authMiddleware, backupRoutes);
+mainRouter.use('/api/attachments', authMiddleware, attachmentRoutes);
+mainRouter.use('/api/settings', authMiddleware, settingsRoutes);
+mainRouter.use('/api/export', authMiddleware, exportRoutes);
+mainRouter.use('/api/admin/backup', authMiddleware, backupRoutes);
 
 // Serve static frontend in production
 const clientDistPath = path.resolve(__dirname, '../../dist/client');
-app.use(express.static(clientDistPath));
+mainRouter.use(express.static(clientDistPath, { index: false }));
 
 // SPA fallback – all non-API routes serve index.html
-app.use((req, res, next) => {
+mainRouter.use((req, res, next) => {
   if (!req.path.startsWith('/api') && req.method === 'GET') {
-    res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
-      if (err) {
-        // In dev mode, client is served by Vite dev server
-        res.status(404).json({ error: 'Not found' });
-      }
-    });
+    const htmlPath = path.join(clientDistPath, 'index.html');
+    if (fs.existsSync(htmlPath)) {
+      let html = fs.readFileSync(htmlPath, 'utf-8');
+      const baseUrl = config.server.baseUrl || '/';
+      const injectString = `<head>\n  <script>window.__APP_CONFIG__ = { baseUrl: "${baseUrl}" };</script>\n  <base href="${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}">`;
+      html = html.replace('<head>', injectString);
+      res.send(html);
+    } else {
+      res.status(404).json({ error: 'Not found' });
+    }
   } else {
     next();
   }
 });
 
+app.use(config.server.baseUrl || '/', mainRouter);
+
 // Start server
 const server = app.listen(config.server.port, config.server.host, () => {
-  console.log(`🚀 Simple Notes server running at http://${config.server.host}:${config.server.port}`);
+  console.log(`🚀 Simple Notes server running at http://${config.server.host}:${config.server.port}${config.server.baseUrl}`);
   console.log(`📁 Data directory: ${config.data.dir}`);
 });
 
