@@ -88,13 +88,16 @@ class MainActivity : AppCompatActivity() {
             webView.reload()
         }
 
-        // 解决 WebView 和 SwipeRefreshLayout 滚动冲突问题
-        // 只有在页面处于绝对顶部(scrollY == 0)时才允许下拉刷新
-        webView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            swipeRefreshLayout.isEnabled = (scrollY == 0)
-        }
-
         webView.loadUrl(serverUrl)
+    }
+
+    inner class WebAppInterface {
+        @android.webkit.JavascriptInterface
+        fun setScrollPosition(isAtTop: Boolean) {
+            runOnUiThread {
+                swipeRefreshLayout.isEnabled = isAtTop
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -106,11 +109,38 @@ class MainActivity : AppCompatActivity() {
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         
+        webView.addJavascriptInterface(WebAppInterface(), "Android")
+        
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 swipeRefreshLayout.isRefreshing = false
                 errorLayout.visibility = android.view.View.GONE
                 webView.visibility = android.view.View.VISIBLE
+                
+                // 注入 JS，监听前端内部滚动容器的滚动情况
+                val js = """
+                    (function() {
+                        var updateScroll = function(isAtTop) {
+                            if (window.Android) {
+                                window.Android.setScrollPosition(isAtTop);
+                            }
+                        };
+                        
+                        // 1. 监听全局所有元素的滚动 (事件捕获机制)
+                        window.addEventListener('scroll', function(e) {
+                            var target = e.target;
+                            if (target === document) target = document.documentElement;
+                            if (target.scrollTop !== undefined) {
+                                updateScroll(target.scrollTop <= 0);
+                            }
+                        }, true);
+                        
+                        // 2. 初始化检查
+                        var container = document.querySelector('.main-content');
+                        updateScroll(container ? (container.scrollTop <= 0) : true);
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(js, null)
             }
 
             override fun onReceivedError(
