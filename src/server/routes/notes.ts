@@ -8,6 +8,46 @@ import { ensureUserDirs } from '../utils/database.js';
 
 const router = Router();
 
+/**
+ * Extract a safe filename from note content (first non-empty line).
+ * Strips markdown heading markers, removes filesystem-unsafe characters,
+ * and limits length to 80 characters.
+ */
+function titleToFilename(content: string): string {
+  const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+  let title = lines.length > 0 ? lines[0] : '';
+  // Strip markdown heading markers (e.g. `## `)
+  title = title.replace(/^#+\s*/, '').trim();
+  // Remove characters not safe for filenames across OS
+  title = title.replace(/[\\/:*?"<>|]/g, '').trim();
+  // Collapse repeated spaces/dots
+  title = title.replace(/\s+/g, ' ').replace(/\.{2,}/g, '.');
+  // Limit length (leave room for suffix and extension)
+  title = title.substring(0, 80).trim();
+  if (!title) title = '无标题笔记';
+  return title;
+}
+
+/**
+ * Resolve a unique .md file path inside `dir` for the given base name.
+ * If `excludeCurrent` is provided (existing file_path), it is considered
+ * the "same file" and not treated as a conflict.
+ */
+function resolveUniqueFilePath(dir: string, baseName: string, excludeCurrent?: string): string {
+  let filename = `${baseName}.md`;
+  if (!fs.existsSync(path.join(dir, filename)) || filename === excludeCurrent) {
+    return filename;
+  }
+  let i = 1;
+  while (true) {
+    filename = `${baseName}-${i}.md`;
+    if (!fs.existsSync(path.join(dir, filename)) || filename === excludeCurrent) {
+      return filename;
+    }
+    i++;
+  }
+}
+
 // GET /api/notes - List notes (with filtering)
 router.get('/', (req: Request, res: Response) => {
   try {
@@ -151,13 +191,18 @@ router.post('/', (req: Request, res: Response) => {
     }
 
     const noteId = uuidv4();
-    const fileName = `${noteId}.md`;
 
     // Ensure user dirs exist
     ensureUserDirs(req.user!.username);
 
+    const notesDir = path.join(config.data.dir, 'users', req.user!.username, 'notes');
+
+    // Derive filename from title (first line of content)
+    const baseName = titleToFilename(content || '');
+    const fileName = resolveUniqueFilePath(notesDir, baseName);
+
     // Write markdown file
-    const filePath = path.join(config.data.dir, 'users', req.user!.username, 'notes', fileName);
+    const filePath = path.join(notesDir, fileName);
     fs.writeFileSync(filePath, content || '', 'utf-8');
 
     // Insert note record
@@ -242,10 +287,25 @@ router.put('/:id', (req: Request, res: Response) => {
       return;
     }
 
-    // Update content file
+    const notesDir = path.join(config.data.dir, 'users', req.user!.username, 'notes');
+
+    // Update content file, and rename if title changed
     if (content !== undefined) {
-      const filePath = path.join(config.data.dir, 'users', req.user!.username, 'notes', note.file_path);
-      fs.writeFileSync(filePath, content, 'utf-8');
+      const oldFilePath = path.join(notesDir, note.file_path);
+
+      // Derive new filename from updated title
+      const newBaseName = titleToFilename(content);
+      const newFileName = resolveUniqueFilePath(notesDir, newBaseName, note.file_path);
+      const newFilePath = path.join(notesDir, newFileName);
+
+      // Write content
+      fs.writeFileSync(newFilePath, content, 'utf-8');
+
+      // If filename changed, remove old file and update DB
+      if (newFileName !== note.file_path) {
+        try { fs.unlinkSync(oldFilePath); } catch { /* old file may already be gone */ }
+        db.prepare('UPDATE notes SET file_path = ? WHERE id = ?').run(newFileName, id);
+      }
     }
 
     // Update category

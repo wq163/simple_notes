@@ -2,13 +2,55 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import { loadConfig } from '../utils/config.js';
 
 const router = Router();
 
-// In-memory map: uuid-filename -> originalName (for download with original name)
-const fileNameMap = new Map<string, string>();
+/**
+ * Decode a filename that may have been mis-encoded as Latin-1 by multer/browser.
+ * Some HTTP clients send UTF-8 bytes but the header is interpreted as Latin-1.
+ */
+function decodeOriginalName(raw: string): string {
+  try {
+    const decoded = Buffer.from(raw, 'latin1').toString('utf8');
+    // Heuristic: if the decoded string contains valid CJK or other multibyte chars, use it
+    if (decoded !== raw && /[^\x00-\x7F]/.test(decoded)) {
+      return decoded;
+    }
+  } catch {
+    // ignore
+  }
+  return raw;
+}
+
+/**
+ * Sanitize filename: remove path separators and other unsafe characters,
+ * but preserve Unicode (Chinese, etc.).
+ */
+function sanitizeFilename(name: string): string {
+  // Remove path traversal characters and null bytes
+  return name.replace(/[/\\:*?"<>|\x00]/g, '_').trim() || 'attachment';
+}
+
+/**
+ * Resolve a unique filename in the given directory.
+ * If `basename.ext` exists, try `basename-1.ext`, `basename-2.ext`, etc.
+ */
+function resolveUniqueFilename(dir: string, filename: string): string {
+  if (!fs.existsSync(path.join(dir, filename))) {
+    return filename;
+  }
+  const ext = path.extname(filename);
+  const base = path.basename(filename, ext);
+  let i = 1;
+  while (true) {
+    const candidate = `${base}-${i}${ext}`;
+    if (!fs.existsSync(path.join(dir, candidate))) {
+      return candidate;
+    }
+    i++;
+  }
+}
 
 // Configure multer
 const storage = multer.diskStorage({
@@ -18,12 +60,16 @@ const storage = multer.diskStorage({
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const newName = `${uuidv4()}${ext}`;
-    // Store original name mapping
-    fileNameMap.set(newName, file.originalname);
-    cb(null, newName);
+  filename: (req: any, file, cb) => {
+    const dir = (() => {
+      const config = loadConfig();
+      return path.join(config.data.dir, 'users', req.user!.username, 'attachments');
+    })();
+    // Decode originalname (fix Chinese garbling from latin1 mis-interpretation)
+    const decoded = decodeOriginalName(file.originalname);
+    const safe = sanitizeFilename(decoded);
+    const unique = resolveUniqueFilename(dir, safe);
+    cb(null, unique);
   },
 });
 
@@ -46,14 +92,20 @@ router.post('/', upload.array('files', 10), (req: Request, res: Response) => {
     }
 
     const username = req.user!.username;
-    const results = files.map(file => ({
-      filename: file.filename,
-      originalName: file.originalname,
-      url: `/api/attachments/${username}/${file.filename}`,
-      size: file.size,
-      mimetype: file.mimetype,
-      isImage: file.mimetype.startsWith('image/'),
-    }));
+    const results = files.map(file => {
+      // Decode original name for display
+      const displayName = decodeOriginalName(file.originalname);
+      return {
+        filename: file.filename,
+        originalName: displayName,
+        // URL-encode the filename so it's safe in URLs (handles Chinese filenames)
+        // Use a relative URL (no leading slash) so it works under any baseUrl configuration
+        url: `api/attachments/${username}/${encodeURIComponent(file.filename)}`,
+        size: file.size,
+        mimetype: file.mimetype,
+        isImage: file.mimetype.startsWith('image/'),
+      };
+    });
 
     res.status(201).json(results);
   } catch (error) {
@@ -71,7 +123,9 @@ export function publicAttachmentHandler(req: Request, res: Response) {
 
     // Security: prevent path traversal
     const safeUser = path.basename(username as string);
-    const safeName = path.basename(filename as string);
+    // Decode percent-encoded filename from URL
+    const decodedFilename = decodeURIComponent(filename as string);
+    const safeName = path.basename(decodedFilename);
     const filePath = path.join(config.data.dir, 'users', safeUser, 'attachments', safeName);
 
     if (!fs.existsSync(filePath)) {
@@ -79,10 +133,12 @@ export function publicAttachmentHandler(req: Request, res: Response) {
       return;
     }
 
-    // If download mode, set Content-Disposition to trigger download
+    // If download mode, set Content-Disposition to trigger download with original filename
     if (req.query.download) {
-      const originalName = fileNameMap.get(safeName) || safeName;
-      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(originalName)}`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}`
+      );
     }
 
     res.sendFile(filePath);
