@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, inject, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useNotesStore } from '@/stores/notes';
 import MilkdownWrapper from '@/components/MilkdownWrapper.vue';
@@ -53,6 +53,16 @@ const editorReady = ref(false);
 
 const isEditing = computed(() => !!route.query.noteId);
 const noteId = computed(() => route.query.noteId as string);
+
+// Ctrl+S / Cmd+S 快捷键保存
+function handleKeyDown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (!saving.value) {
+      saveNote();
+    }
+  }
+}
 
 function goBack() {
   const newQuery = { ...route.query };
@@ -159,6 +169,8 @@ async function saveNote() {
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleKeyDown);
+
   await notesStore.fetchCategories();
   await notesStore.fetchTags();
 
@@ -186,6 +198,10 @@ onMounted(async () => {
   }
 
   editorReady.value = true;
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeyDown);
 });
 </script>
 

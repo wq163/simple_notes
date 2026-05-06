@@ -58,7 +58,7 @@ jobs:
         # docker push ${GHCR_FULL}
 
     - name: Upload Tarball
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}
         path: ${{ env.FILENAME }}
