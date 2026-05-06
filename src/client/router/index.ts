@@ -5,6 +5,10 @@ const configBase = (window as any).__APP_CONFIG__?.baseUrl || '/';
 
 const router = createRouter({
   history: createWebHistory(configBase),
+  // 禁止浏览器自动管理导航时的滚动位置，防止重置内部滚动容器
+  scrollBehavior() {
+    return false;
+  },
   routes: [
     {
       path: '/login',

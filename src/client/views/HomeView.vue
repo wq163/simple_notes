@@ -2,6 +2,7 @@
   <div class="workspace-view">
     <!-- Left Pane: Notes List -->
     <div 
+      ref="notesListPaneRef"
       class="notes-list-pane" 
       :class="{ 'mobile-hidden': !!route.query.noteId || !!route.query.newNote }"
       :style="{ width: listWidth + 'px', flex: 'none' }"
@@ -140,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch, inject } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch, inject, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useNotesStore, type NoteListItem } from '@/stores/notes';
 import NoteEditorView from '@/views/NoteEditorView.vue';
@@ -199,9 +200,29 @@ async function loadNotes() {
   }
 }
 
-function openNote(note: NoteListItem) {
+async function openNote(note: NoteListItem) {
   if (isTrash.value) return;
-  router.push({ path: route.path, query: { ...route.query, noteId: note.id, newNote: undefined } });
+  // 保存所有可能的滚动容器的滚动位置
+  const pane = notesListPaneRef.value;
+  const contentArea = pane?.closest('.content-area') as HTMLElement | null;
+  const paneScroll = pane?.scrollTop ?? 0;
+  const contentScroll = contentArea?.scrollTop ?? 0;
+
+  await router.push({ path: route.path, query: { ...route.query, noteId: note.id, newNote: undefined } });
+
+  // 用轮询机制持续恢复滚动位置，直到位置稳定或超时
+  // 浏览器可能在导航后的多个帧内异步重置 scrollTop
+  await nextTick();
+  let frameCount = 0;
+  const maxFrames = 30; // 约 500ms
+  const restoreScroll = () => {
+    if (frameCount >= maxFrames) return;
+    frameCount++;
+    if (pane && pane.scrollTop !== paneScroll) pane.scrollTop = paneScroll;
+    if (contentArea && contentArea.scrollTop !== contentScroll) contentArea.scrollTop = contentScroll;
+    requestAnimationFrame(restoreScroll);
+  };
+  restoreScroll();
 }
 
 async function togglePin(note: NoteListItem) {
@@ -248,6 +269,7 @@ async function emptyTrash() {
 }
 
 // Resizer logic
+const notesListPaneRef = ref<HTMLElement>();
 const listWidth = ref(parseInt(localStorage.getItem('notesListWidth') || '320'));
 const isResizing = ref(false);
 
@@ -289,7 +311,8 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
 <style scoped>
 .workspace-view {
   display: flex;
-  height: calc(100vh - 80px);
+  height: 100%;
+  overflow: hidden;
   gap: var(--spacing-md);
 }
 

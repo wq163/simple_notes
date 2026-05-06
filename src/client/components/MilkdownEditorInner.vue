@@ -2,7 +2,8 @@
 import { Milkdown, useEditor } from '@milkdown/vue';
 import { Crepe, CrepeFeature } from '@milkdown/crepe';
 import { commandsCtx, editorViewCtx } from '@milkdown/core';
-import { callCommand, insert } from '@milkdown/utils';
+import { callCommand, insert, $prose } from '@milkdown/utils';
+import { Plugin, PluginKey } from '@milkdown/prose/state';
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -64,6 +65,47 @@ const { get } = useEditor((root) => {
       props.onChange?.(markdown);
     });
   });
+
+  // Register clipboard paste handler for images
+  const pasteUploadPlugin = $prose(() => new Plugin({
+    key: new PluginKey('clipboard-image-paste'),
+    props: {
+      handlePaste(view, event) {
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) return false;
+
+        // Check for image files in clipboard
+        const items = Array.from(clipboardData.items);
+        const imageItem = items.find(item => item.type.startsWith('image/'));
+        if (!imageItem) return false;
+
+        const file = imageItem.getAsFile();
+        if (!file) return false;
+
+        // Prevent default paste behavior for images
+        event.preventDefault();
+
+        // Upload and insert asynchronously
+        (async () => {
+          try {
+            if (props.fileUpload) {
+              const result = await props.fileUpload(file);
+              insertMarkdown(`![${result.originalName}](${result.url})`);
+            } else if (props.imageUpload) {
+              const url = await props.imageUpload(file);
+              insertMarkdown(`![${file.name}](${url})`);
+            }
+          } catch {
+            // Upload failed, error already shown by the upload handler
+          }
+        })();
+
+        return true;
+      },
+    },
+  }));
+
+  crepe.editor.use(pasteUploadPlugin);
 
   crepeRef.value = crepe;
   return crepe;

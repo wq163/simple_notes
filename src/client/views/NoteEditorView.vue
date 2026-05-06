@@ -141,7 +141,16 @@ async function saveNote() {
 
     // Refresh tags and notes to reflect new inline tags
     await notesStore.fetchTags();
-    await notesStore.fetchNotes();
+    // 根据当前路由上下文刷新笔记列表，避免跳到首页
+    if (route.name === 'Category') {
+      await notesStore.fetchNotes({ categoryId: route.params.id as string });
+    } else if (route.name === 'Tag') {
+      await notesStore.fetchNotes({ tagId: route.params.id as string });
+    } else if (route.name === 'Search') {
+      await notesStore.fetchNotes({ search: route.query.q as string });
+    } else {
+      await notesStore.fetchNotes();
+    }
   } catch (e: any) {
     showToast(e.response?.data?.error || '保存失败', 'error');
   } finally {
@@ -153,9 +162,13 @@ onMounted(async () => {
   await notesStore.fetchCategories();
   await notesStore.fetchTags();
 
-  // Set default category
-  const defaultCat = notesStore.categories.find(c => c.isDefault);
-  if (defaultCat) selectedCategory.value = defaultCat.id;
+  // Set default category: 如果当前在某个分类页面，新建笔记默认使用该分类
+  if (!isEditing.value && route.name === 'Category' && route.params.id) {
+    selectedCategory.value = route.params.id as string;
+  } else {
+    const defaultCat = notesStore.categories.find(c => c.isDefault);
+    if (defaultCat) selectedCategory.value = defaultCat.id;
+  }
 
   // If editing, load note
   if (isEditing.value) {
