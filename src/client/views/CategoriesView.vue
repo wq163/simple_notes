@@ -2,7 +2,10 @@
   <div class="manage-view">
     <div class="page-header">
       <h1 class="page-title">分类管理</h1>
-      <button class="btn btn-primary btn-sm" @click="showAddModal = true">+ 新建分类</button>
+      <button class="btn btn-primary btn-sm" @click="showAddModal = true">
+        <Plus :size="17" aria-hidden="true" />
+        新建分类
+      </button>
     </div>
 
     <div class="items-list">
@@ -17,22 +20,30 @@
           <span class="item-count">{{ cat.noteCount }} 篇笔记</span>
         </div>
         <div v-if="!cat.isDefault" class="item-actions">
-          <button class="btn btn-ghost btn-sm" @click="startEdit(cat)">✏️ 编辑</button>
-          <button class="btn btn-ghost btn-sm" @click="deleteItem(cat)" :disabled="cat.noteCount > 0" :title="cat.noteCount > 0 ? '有笔记时不可删除' : '删除'">🗑️ 删除</button>
+          <button class="btn btn-ghost btn-sm" @click="startEdit(cat)">
+            <Pencil :size="16" aria-hidden="true" />
+            编辑
+          </button>
+          <button class="btn btn-ghost btn-sm" @click="deleteItem(cat)" :disabled="cat.noteCount > 0" :title="cat.noteCount > 0 ? '有笔记时不可删除' : '删除'">
+            <Trash2 :size="16" aria-hidden="true" />
+            删除
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Add/Edit Modal -->
     <div v-if="showAddModal || editingItem" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-content">
+      <div ref="dialogRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="category-dialog-title" tabindex="-1">
         <div class="modal-header">
-          <h2 class="modal-title">{{ editingItem ? '编辑分类' : '新建分类' }}</h2>
-          <button class="btn btn-ghost btn-icon" @click="closeModal">✕</button>
+          <h2 id="category-dialog-title" class="modal-title">{{ editingItem ? '编辑分类' : '新建分类' }}</h2>
+          <button class="btn btn-ghost btn-icon" @click="closeModal" aria-label="关闭">
+            <X :size="18" aria-hidden="true" />
+          </button>
         </div>
         <div class="form-group">
-          <label class="form-label">分类名称</label>
-          <input v-model="itemName" class="form-input" placeholder="输入分类名称" @keydown.enter="submitItem" autofocus />
+          <label class="form-label" for="category-name">分类名称</label>
+          <input id="category-name" v-model="itemName" class="form-input" placeholder="输入分类名称" @keydown.enter="submitItem" data-autofocus />
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="closeModal">取消</button>
@@ -44,8 +55,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, onMounted } from 'vue';
+import { computed, ref, inject, onMounted } from 'vue';
+import { Pencil, Plus, Trash2, X } from '@lucide/vue';
 import { useNotesStore, type Category } from '@/stores/notes';
+import { useModalFocus } from '@/composables/useModalFocus';
 
 const notesStore = useNotesStore();
 const showToast = inject<(msg: string, type: string) => void>('showToast')!;
@@ -53,6 +66,7 @@ const showToast = inject<(msg: string, type: string) => void>('showToast')!;
 const showAddModal = ref(false);
 const editingItem = ref<Category | null>(null);
 const itemName = ref('');
+const modalOpen = computed(() => showAddModal.value || !!editingItem.value);
 
 function startEdit(cat: Category) {
   editingItem.value = cat;
@@ -64,6 +78,8 @@ function closeModal() {
   editingItem.value = null;
   itemName.value = '';
 }
+
+const { dialogRef } = useModalFocus(modalOpen, closeModal);
 
 async function submitItem() {
   if (!itemName.value.trim()) return;

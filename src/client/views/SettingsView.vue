@@ -17,12 +17,20 @@
           <div class="theme-toggle">
             <button
               class="theme-btn" :class="{ active: settingsStore.theme === 'light' }"
+              :aria-pressed="settingsStore.theme === 'light'"
               @click="updateTheme('light')"
-            >☀️ 浅色</button>
+            >
+              <Sun :size="16" aria-hidden="true" />
+              浅色
+            </button>
             <button
               class="theme-btn" :class="{ active: settingsStore.theme === 'dark' }"
+              :aria-pressed="settingsStore.theme === 'dark'"
               @click="updateTheme('dark')"
-            >🌙 深色</button>
+            >
+              <Moon :size="16" aria-hidden="true" />
+              深色
+            </button>
           </div>
         </div>
 
@@ -32,6 +40,7 @@
             <span class="setting-desc">{{ settingsStore.fontSize }}px</span>
           </div>
           <input
+            aria-label="字体大小"
             type="range"
             :value="settingsStore.fontSize"
             min="12" max="24" step="1"
@@ -46,6 +55,7 @@
             <span class="setting-desc">新建笔记时的默认模式</span>
           </div>
           <select
+            aria-label="默认编辑器模式"
             :value="settingsStore.defaultEditorMode"
             class="form-input select-sm"
             @change="updateEditorMode($event)"
@@ -66,7 +76,8 @@
             <span class="setting-desc">将所有笔记和附件导出为 ZIP 文件</span>
           </div>
           <button class="btn btn-secondary btn-sm" @click="exportData" :disabled="exporting">
-            {{ exporting ? '导出中...' : '📦 导出' }}
+            <Download :size="16" aria-hidden="true" />
+            {{ exporting ? '导出中...' : '导出' }}
           </button>
         </div>
 
@@ -77,9 +88,13 @@
             <span class="setting-desc">将整个数据目录备份到 S3 兼容对象存储</span>
           </div>
           <div class="setting-actions">
-            <button class="btn btn-ghost btn-sm" @click="openBackupConfig">⚙️ 配置</button>
+            <button class="btn btn-ghost btn-sm" @click="openBackupConfig">
+              <Settings :size="16" aria-hidden="true" />
+              配置
+            </button>
             <button class="btn btn-primary btn-sm" @click="runBackup" :disabled="backingUp">
-              {{ backingUp ? '备份中...' : '☁️ 备份' }}
+              <CloudUpload :size="16" aria-hidden="true" />
+              {{ backingUp ? '备份中...' : '备份' }}
             </button>
           </div>
         </div>
@@ -87,47 +102,53 @@
     </div>
 
     <!-- S3 Config Modal -->
-    <div v-if="showS3Modal" class="modal-overlay" @click.self="showS3Modal = false">
-      <div class="modal-content s3-modal">
-        <h3 class="modal-title">S3 备份配置</h3>
+    <div v-if="showS3Modal" class="modal-overlay" @click.self="closeS3Modal">
+      <div ref="dialogRef" class="modal-content s3-modal" role="dialog" aria-modal="true" aria-labelledby="s3-dialog-title" tabindex="-1">
+        <div class="modal-header s3-modal-header">
+          <h3 id="s3-dialog-title" class="modal-title">S3 备份配置</h3>
+          <button class="btn btn-ghost btn-icon" @click="closeS3Modal" aria-label="关闭">
+            <X :size="18" aria-hidden="true" />
+          </button>
+        </div>
         <div class="modal-body">
           <div class="form-group">
-            <label class="form-label">S3 Endpoint</label>
-            <input v-model="s3Form.s3Endpoint" class="form-input" placeholder="https://s3.amazonaws.com" />
+            <label class="form-label" for="s3-endpoint">S3 Endpoint</label>
+            <input id="s3-endpoint" v-model="s3Form.s3Endpoint" class="form-input" placeholder="https://s3.amazonaws.com" data-autofocus />
           </div>
           <div class="form-group">
-            <label class="form-label">Region</label>
-            <input v-model="s3Form.s3Region" class="form-input" placeholder="us-east-1" />
+            <label class="form-label" for="s3-region">Region</label>
+            <input id="s3-region" v-model="s3Form.s3Region" class="form-input" placeholder="us-east-1" />
           </div>
           <div class="form-group">
-            <label class="form-label">Bucket</label>
-            <input v-model="s3Form.s3Bucket" class="form-input" placeholder="my-notes-backup" />
+            <label class="form-label" for="s3-bucket">Bucket</label>
+            <input id="s3-bucket" v-model="s3Form.s3Bucket" class="form-input" placeholder="my-notes-backup" />
           </div>
           <div class="form-group">
-            <label class="form-label">Access Key</label>
-            <input v-model="s3Form.s3AccessKey" class="form-input" placeholder="AKIAIOSFODNN7EXAMPLE" />
+            <label class="form-label" for="s3-access-key">Access Key</label>
+            <input id="s3-access-key" v-model="s3Form.s3AccessKey" class="form-input" placeholder="AKIAIOSFODNN7EXAMPLE" />
           </div>
           <div class="form-group">
-            <label class="form-label">Secret Key</label>
-            <input v-model="s3Form.s3SecretKey" type="password" class="form-input" placeholder="输入新密钥或保留 ****" />
+            <label class="form-label" for="s3-secret-key">Secret Key</label>
+            <input id="s3-secret-key" v-model="s3Form.s3SecretKey" type="password" class="form-input" placeholder="输入新密钥或保留 ****" />
           </div>
           <div class="form-row">
             <div class="form-group form-group-half">
-              <label class="form-label">路径前缀</label>
-              <input v-model="s3Form.s3PathPrefix" class="form-input" placeholder="notes-backup" />
+              <label class="form-label" for="s3-path-prefix">路径前缀</label>
+              <input id="s3-path-prefix" v-model="s3Form.s3PathPrefix" class="form-input" placeholder="notes-backup" />
             </div>
             <div class="form-group form-group-half">
-              <label class="form-label">保留数量</label>
-              <input v-model.number="s3Form.retentionCount" type="number" min="1" max="100" class="form-input" />
+              <label class="form-label" for="s3-retention-count">保留数量</label>
+              <input id="s3-retention-count" v-model.number="s3Form.retentionCount" type="number" min="1" max="100" class="form-input" />
             </div>
           </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost btn-sm" @click="testS3Connection" :disabled="testingConnection">
-            {{ testingConnection ? '测试中...' : '🔗 测试连接' }}
+            <Link2 :size="16" aria-hidden="true" />
+            {{ testingConnection ? '测试中...' : '测试连接' }}
           </button>
           <div class="modal-footer-right">
-            <button class="btn btn-ghost btn-sm" @click="showS3Modal = false">取消</button>
+            <button class="btn btn-ghost btn-sm" @click="closeS3Modal">取消</button>
             <button class="btn btn-primary btn-sm" @click="saveS3Config" :disabled="savingConfig">
               {{ savingConfig ? '保存中...' : '保存' }}
             </button>
@@ -140,9 +161,11 @@
 
 <script setup lang="ts">
 import { ref, inject } from 'vue';
+import { CloudUpload, Download, Link2, Moon, Settings, Sun, X } from '@lucide/vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
 import api from '@/api';
+import { useModalFocus } from '@/composables/useModalFocus';
 
 const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
@@ -164,6 +187,12 @@ const s3Form = ref({
   s3PathPrefix: 'notes-backup',
   retentionCount: 5,
 });
+
+function closeS3Modal() {
+  showS3Modal.value = false;
+}
+
+const { dialogRef } = useModalFocus(showS3Modal, closeS3Modal);
 
 // ---- Settings handlers ----
 
@@ -236,7 +265,7 @@ async function saveS3Config() {
   try {
     await api.put('/admin/backup/config', s3Form.value);
     showToast('备份配置已保存', 'success');
-    showS3Modal.value = false;
+    closeS3Modal();
   } catch (e: any) {
     showToast(e.response?.data?.error || '保存失败', 'error');
   } finally {
@@ -247,9 +276,7 @@ async function saveS3Config() {
 async function testS3Connection() {
   testingConnection.value = true;
   try {
-    // Save first, then test
-    await api.put('/admin/backup/config', s3Form.value);
-    const { data } = await api.post('/admin/backup/test');
+    const { data } = await api.post('/admin/backup/test', s3Form.value);
     showToast(data.message || '连接成功', 'success');
   } catch (e: any) {
     showToast(e.response?.data?.error || '连接测试失败', 'error');
@@ -344,12 +371,21 @@ async function runBackup() {
   transition: all var(--transition-fast);
   color: var(--color-text-secondary);
   font-family: var(--font-family);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
 .theme-btn.active {
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
   box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+@media (max-width: 768px) {
+  .theme-btn {
+    min-height: 44px;
+  }
 }
 
 .range-input {
@@ -385,10 +421,14 @@ async function runBackup() {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
+.s3-modal-header {
+  padding: var(--spacing-lg) var(--spacing-lg) 0;
+  margin-bottom: 0;
+}
+
 .modal-title {
   font-size: var(--font-size-lg);
   font-weight: 600;
-  padding: var(--spacing-lg) var(--spacing-lg) 0;
 }
 
 .modal-body {

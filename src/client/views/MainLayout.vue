@@ -7,26 +7,29 @@
     <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-header">
         <div class="sidebar-brand">
-          <span class="sidebar-logo">📝</span>
+          <NotebookPen class="sidebar-logo" :size="24" aria-hidden="true" />
           <span class="sidebar-app-name">Simple Notes</span>
         </div>
       </div>
 
       <nav class="sidebar-nav">
         <router-link to="/" class="nav-item" :class="{ active: isHome }" @click="closeSidebar">
-          <span class="nav-icon">🏠</span>
+          <Home class="nav-icon" :size="18" aria-hidden="true" />
           <span class="nav-text">首页</span>
         </router-link>
 
         <!-- Categories Section -->
         <div class="nav-section">
-          <div class="nav-section-header" @click="showCategories = !showCategories">
-            <span class="nav-icon">📁</span>
-            <span class="nav-text">分类</span>
+          <div class="nav-section-heading">
+            <button type="button" class="nav-section-header" @click="showCategories = !showCategories" :aria-expanded="showCategories">
+              <Folder class="nav-icon" :size="18" aria-hidden="true" />
+              <span class="nav-text">分类</span>
+              <ChevronRight class="nav-arrow" :class="{ expanded: showCategories }" :size="15" aria-hidden="true" />
+            </button>
             <router-link to="/categories" class="nav-manage-icon" @click.stop title="管理分类">
-              ⚙️
+              <Settings :size="16" aria-hidden="true" />
+              <span class="sr-only">管理分类</span>
             </router-link>
-            <span class="nav-arrow" :class="{ expanded: showCategories }">▸</span>
           </div>
           <div v-if="showCategories" class="nav-sub-list">
             <router-link
@@ -45,13 +48,16 @@
 
         <!-- Tags Section -->
         <div class="nav-section">
-          <div class="nav-section-header" @click="showTags = !showTags">
-            <span class="nav-icon">🏷️</span>
-            <span class="nav-text">标签</span>
+          <div class="nav-section-heading">
+            <button type="button" class="nav-section-header" @click="showTags = !showTags" :aria-expanded="showTags">
+              <Tags class="nav-icon" :size="18" aria-hidden="true" />
+              <span class="nav-text">标签</span>
+              <ChevronRight class="nav-arrow" :class="{ expanded: showTags }" :size="15" aria-hidden="true" />
+            </button>
             <router-link to="/tags" class="nav-manage-icon" @click.stop title="管理标签">
-              ⚙️
+              <Settings :size="16" aria-hidden="true" />
+              <span class="sr-only">管理标签</span>
             </router-link>
-            <span class="nav-arrow" :class="{ expanded: showTags }">▸</span>
           </div>
           <div v-if="showTags" class="nav-sub-list">
             <router-link
@@ -69,12 +75,12 @@
         </div>
 
         <router-link to="/trash" class="nav-item" :class="{ active: route.name === 'Trash' }" @click="closeSidebar">
-          <span class="nav-icon">🗑️</span>
+          <Trash2 class="nav-icon" :size="18" aria-hidden="true" />
           <span class="nav-text">回收站</span>
         </router-link>
 
         <router-link to="/settings" class="nav-item" :class="{ active: route.name === 'Settings' }" @click="closeSidebar">
-          <span class="nav-icon">⚙️</span>
+          <Settings class="nav-icon" :size="18" aria-hidden="true" />
           <span class="nav-text">设置</span>
         </router-link>
       </nav>
@@ -88,8 +94,8 @@
             <div class="user-role">{{ authStore.user?.role === 'admin' ? '管理员' : '用户' }}</div>
           </div>
         </router-link>
-        <button v-if="authStore.isAdmin" class="btn btn-ghost btn-sm" @click="$router.push('/admin/users'); closeSidebar()" title="用户管理">
-          👥
+        <button v-if="authStore.isAdmin" class="btn btn-ghost btn-icon" @click="$router.push('/admin/users'); closeSidebar()" title="用户管理" aria-label="用户管理">
+          <Users :size="18" aria-hidden="true" />
         </button>
       </div>
     </aside>
@@ -98,8 +104,8 @@
     <main class="main-content">
       <!-- Top Bar -->
       <header class="top-bar" :class="{ 'mobile-hidden': isMobileEditing }">
-        <button class="btn btn-ghost btn-icon hamburger" @click="sidebarOpen = !sidebarOpen">
-          ☰
+        <button class="btn btn-ghost btn-icon hamburger" @click="sidebarOpen = !sidebarOpen" aria-label="打开导航" :aria-expanded="sidebarOpen">
+          <Menu :size="21" aria-hidden="true" />
         </button>
 
         <!-- Mobile: show page title in top bar -->
@@ -107,53 +113,78 @@
 
         <!-- Desktop: search bar -->
         <div class="search-bar desktop-only">
-          <span class="search-icon">🔍</span>
+          <Search class="search-icon" :size="16" aria-hidden="true" />
           <input
             v-model="searchQuery"
-            type="text"
+            type="search"
             placeholder="搜索笔记..."
+            aria-label="搜索笔记"
             @keydown.enter="doSearch"
           />
+          <button v-if="searchQuery" type="button" class="search-clear" @click="clearSearch" aria-label="清除搜索">
+            <X :size="15" aria-hidden="true" />
+          </button>
         </div>
 
         <!-- Mobile: search icon -->
-        <button class="btn btn-ghost btn-icon topbar-search-btn mobile-only" @click="mobileSearchOpen = !mobileSearchOpen">
-          🔍
+        <button class="btn btn-ghost btn-icon topbar-search-btn mobile-only" @click="mobileSearchOpen = !mobileSearchOpen" aria-label="搜索笔记" :aria-expanded="mobileSearchOpen">
+          <Search :size="20" aria-hidden="true" />
         </button>
 
         <router-link :to="{ path: route.path, query: { newNote: 'true' } }" class="btn btn-primary btn-sm desktop-only">
-          + 新建笔记
+          <Plus :size="17" aria-hidden="true" />
+          新建笔记
         </router-link>
       </header>
 
       <!-- Mobile search dropdown -->
       <div v-if="mobileSearchOpen" class="mobile-search-bar mobile-only">
         <div class="search-bar">
-          <span class="search-icon">🔍</span>
+          <Search class="search-icon" :size="16" aria-hidden="true" />
           <input
             v-model="searchQuery"
-            type="text"
+            type="search"
             placeholder="搜索笔记..."
+            aria-label="搜索笔记"
             autofocus
-            @keydown.enter="doSearch; mobileSearchOpen = false"
+            @keydown.enter="submitMobileSearch"
           />
+          <button v-if="searchQuery" type="button" class="search-clear" @click="clearSearch" aria-label="清除搜索">
+            <X :size="15" aria-hidden="true" />
+          </button>
         </div>
       </div>
 
       <!-- Page Content -->
-      <div class="content-area" :class="{ 'editing-mode': isMobileEditing }">
+      <div class="content-area" :class="{ 'editing-mode': isMobileEditing, 'workspace-content': isNotesWorkspace }">
         <router-view />
       </div>
     </main>
 
     <!-- FAB for mobile -->
-    <router-link v-show="!isMobileEditing" :to="{ path: route.path, query: { newNote: 'true' } }" class="fab mobile-only">+</router-link>
+    <router-link v-show="!isMobileEditing" :to="{ path: route.path, query: { newNote: 'true' } }" class="fab mobile-only" aria-label="新建笔记">
+      <Plus :size="28" aria-hidden="true" />
+    </router-link>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import {
+  ChevronRight,
+  Folder,
+  Home,
+  Menu,
+  NotebookPen,
+  Plus,
+  Search,
+  Settings,
+  Tags,
+  Trash2,
+  Users,
+  X,
+} from '@lucide/vue';
 import { useAuthStore } from '@/stores/auth';
 import { useNotesStore } from '@/stores/notes';
 import { useSettingsStore } from '@/stores/settings';
@@ -172,6 +203,7 @@ const mobileSearchOpen = ref(false);
 
 const isHome = computed(() => route.name === 'Home');
 const isMobileEditing = computed(() => !!route.query.noteId || !!route.query.newNote);
+const isNotesWorkspace = computed(() => ['Home', 'Category', 'Tag', 'Search', 'Trash'].includes(String(route.name)));
 
 // Mobile top bar title — mirrors the page title from HomeView
 const mobileTitle = computed(() => {
@@ -201,9 +233,20 @@ function closeSidebar() {
 }
 
 function doSearch() {
-  if (searchQuery.value.trim()) {
-    router.push({ name: 'Search', query: { q: searchQuery.value.trim() } });
-  }
+  const query = searchQuery.value.trim();
+  return query
+    ? router.push({ name: 'Search', query: { q: query } })
+    : router.push({ name: 'Home' });
+}
+
+async function submitMobileSearch() {
+  await doSearch();
+  mobileSearchOpen.value = false;
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  if (route.name === 'Search') void router.push({ name: 'Home' });
 }
 
 // Handle window resize
@@ -219,6 +262,18 @@ onMounted(async () => {
     settingsStore.fetchSettings(),
   ]);
 });
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onResize);
+});
+
+watch(
+  () => [route.name, route.query.q],
+  () => {
+    searchQuery.value = route.name === 'Search' ? String(route.query.q || '') : '';
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>
@@ -252,7 +307,8 @@ onMounted(async () => {
 }
 
 .sidebar-logo {
-  font-size: 24px;
+  color: var(--color-accent);
+  flex-shrink: 0;
 }
 
 .sidebar-app-name {
@@ -291,25 +347,34 @@ onMounted(async () => {
 }
 
 .nav-icon {
-  font-size: 16px;
   width: 24px;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .nav-section {
   margin-bottom: 4px;
 }
 
+.nav-section-heading {
+  display: flex;
+  align-items: center;
+}
+
 .nav-section-header {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   padding: 10px 14px;
+  border: 0;
   border-radius: var(--radius-md);
+  background: transparent;
   color: var(--color-text-sidebar);
   font-size: var(--font-size-sm);
+  font-family: var(--font-family);
   cursor: pointer;
   transition: all var(--transition-fast);
+  text-align: left;
 }
 
 .nav-section-header:hover {
@@ -322,15 +387,16 @@ onMounted(async () => {
 }
 
 .nav-manage-icon {
-  margin-left: auto;
-  font-size: 14px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
   opacity: 0.5;
   transition: opacity var(--transition-fast);
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .nav-manage-icon:hover {
@@ -338,8 +404,7 @@ onMounted(async () => {
 }
 
 .nav-arrow {
-  margin-left: var(--spacing-sm);
-  font-size: 12px;
+  margin-left: auto;
   transition: transform var(--transition-fast);
 }
 
@@ -463,7 +528,7 @@ onMounted(async () => {
 }
 
 .hamburger {
-  font-size: 20px;
+  flex-shrink: 0;
 }
 
 .content-area {
@@ -485,6 +550,10 @@ onMounted(async () => {
   .sidebar:not(.open) {
     margin-left: calc(-1 * var(--sidebar-width));
   }
+
+  .content-area.workspace-content {
+    padding: 0 0 var(--spacing-md) var(--spacing-md);
+  }
 }
 
 @media (max-width: 768px) {
@@ -498,6 +567,18 @@ onMounted(async () => {
 
   .sidebar.open {
     transform: translateX(0);
+  }
+
+  .nav-item,
+  .nav-section-header,
+  .nav-sub-item {
+    min-height: 44px;
+  }
+
+  .nav-manage-icon {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
   }
 
   .content-area {

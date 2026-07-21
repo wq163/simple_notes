@@ -69,8 +69,11 @@ export const useNotesStore = defineStore('notes', {
       this.tags = data;
     },
 
-    async fetchNotes(params?: { categoryId?: string; tagId?: string; search?: string; trash?: boolean }) {
-      this.loading = true;
+    async fetchNotes(
+      params?: { categoryId?: string; tagId?: string; search?: string; trash?: boolean },
+      options?: { silent?: boolean },
+    ) {
+      if (!options?.silent) this.loading = true;
       try {
         const query: any = {};
         if (params?.categoryId) query.categoryId = params.categoryId;
@@ -81,7 +84,7 @@ export const useNotesStore = defineStore('notes', {
         const { data } = await api.get('/notes', { params: query });
         this.notes = data;
       } finally {
-        this.loading = false;
+        if (!options?.silent) this.loading = false;
       }
     },
 

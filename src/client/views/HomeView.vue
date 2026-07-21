@@ -16,7 +16,8 @@
       <!-- Mobile: trash empty button standalone -->
       <div v-if="isTrash && notesStore.notes.length > 0" class="mobile-only mobile-trash-header">
         <button class="btn btn-ghost btn-sm text-danger" @click="emptyTrash" style="color: var(--color-danger);">
-          🗑️ 清空回收站
+          <Trash2 :size="17" aria-hidden="true" />
+          清空回收站
         </button>
       </div>
 
@@ -30,86 +31,103 @@
       <!-- Pinned Section -->
       <template v-if="pinnedNotes.length > 0">
         <div class="section-label">置顶</div>
-        <div
+        <article
           v-for="note in pinnedNotes"
           :key="note.id"
           class="note-card card pinned"
-          @click="openNote(note)"
+          :class="{ selected: selectedNoteId === note.id }"
         >
-          <div class="note-card-header">
-            <span class="pin-icon" title="已置顶">📌</span>
-            <h3 class="note-title">{{ note.title }}</h3>
-            <div class="note-actions">
-              <button class="btn btn-ghost btn-icon btn-sm" @click.stop="togglePin(note)" title="取消置顶">📌</button>
-              <button class="btn btn-ghost btn-icon btn-sm" @click.stop="deleteNote(note)" title="删除">🗑️</button>
+          <button class="note-card-open" @click="openNote(note)" :aria-current="selectedNoteId === note.id ? 'true' : undefined">
+            <div class="note-card-header">
+              <Pin class="pin-icon" :size="15" aria-hidden="true" />
+              <h3 class="note-title">{{ note.title }}</h3>
             </div>
-          </div>
-          <p class="note-preview">{{ note.preview || '空笔记' }}</p>
-          <div class="note-card-footer">
-            <span class="note-category">{{ note.categoryName }}</span>
-            <div v-if="note.tags.length" class="note-tags">
-              <span v-for="tag in note.tags.slice(0, 3)" :key="tag.id" class="tag-badge">{{ tag.name }}</span>
+            <p class="note-preview">{{ note.preview || '空笔记' }}</p>
+            <div class="note-card-footer">
+              <span class="note-category">{{ note.categoryName }}</span>
+              <div v-if="note.tags.length" class="note-tags">
+                <span v-for="tag in note.tags.slice(0, 3)" :key="tag.id" class="tag-badge">{{ tag.name }}</span>
+              </div>
+              <span class="note-time">{{ formatTime(note.updatedAt) }}</span>
             </div>
-            <span class="note-time">{{ formatTime(note.updatedAt) }}</span>
+          </button>
+          <div class="note-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" @click="togglePin(note)" title="取消置顶" aria-label="取消置顶">
+              <PinOff :size="17" aria-hidden="true" />
+            </button>
+            <button class="btn btn-ghost btn-icon btn-sm" @click="deleteNote(note)" title="删除" aria-label="删除">
+              <Trash2 :size="17" aria-hidden="true" />
+            </button>
           </div>
-        </div>
+        </article>
       </template>
 
       <!-- Unpinned / Recent Section -->
       <template v-if="unpinnedNotes.length > 0">
         <div class="section-label">最近</div>
-        <div
+        <article
           v-for="note in unpinnedNotes"
           :key="note.id"
           class="note-card card"
-          @click="openNote(note)"
+          :class="{ selected: selectedNoteId === note.id }"
         >
-          <div class="note-card-header">
-            <h3 class="note-title">{{ note.title }}</h3>
-            <div class="note-actions">
-              <button v-if="!isTrash" class="btn btn-ghost btn-icon btn-sm" @click.stop="togglePin(note)" title="置顶">📍</button>
-              <button v-if="isTrash" class="btn btn-ghost btn-icon btn-sm" @click.stop="restoreNote(note)" title="恢复">♻️</button>
-              <button class="btn btn-ghost btn-icon btn-sm" @click.stop="deleteNote(note)" :title="isTrash ? '永久删除' : '删除'">🗑️</button>
+          <button class="note-card-open" @click="openNote(note)" :aria-current="selectedNoteId === note.id ? 'true' : undefined">
+            <div class="note-card-header">
+              <h3 class="note-title">{{ note.title }}</h3>
             </div>
-          </div>
-          <p class="note-preview">{{ note.preview || '空笔记' }}</p>
-          <div class="note-card-footer">
-            <span class="note-category">{{ note.categoryName }}</span>
-            <div v-if="note.tags.length" class="note-tags">
-              <span v-for="tag in note.tags.slice(0, 3)" :key="tag.id" class="tag-badge">{{ tag.name }}</span>
+            <p class="note-preview">{{ note.preview || '空笔记' }}</p>
+            <div class="note-card-footer">
+              <span class="note-category">{{ note.categoryName }}</span>
+              <div v-if="note.tags.length" class="note-tags">
+                <span v-for="tag in note.tags.slice(0, 3)" :key="tag.id" class="tag-badge">{{ tag.name }}</span>
+              </div>
+              <span class="note-time">{{ formatTime(note.updatedAt) }}</span>
             </div>
-            <span class="note-time">{{ formatTime(note.updatedAt) }}</span>
+          </button>
+          <div class="note-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" @click="togglePin(note)" title="置顶" aria-label="置顶">
+              <Pin :size="17" aria-hidden="true" />
+            </button>
+            <button class="btn btn-ghost btn-icon btn-sm" @click="deleteNote(note)" title="删除" aria-label="删除">
+              <Trash2 :size="17" aria-hidden="true" />
+            </button>
           </div>
-        </div>
+        </article>
       </template>
 
       <!-- Trash: no grouping, show all with restore button -->
       <template v-if="isTrash">
-        <div
+        <article
           v-for="note in notesStore.notes"
           :key="note.id"
           class="note-card card"
-          @click="openNote(note)"
         >
-          <div class="note-card-header">
-            <h3 class="note-title">{{ note.title }}</h3>
-            <div class="note-actions">
-              <button class="btn btn-ghost btn-icon btn-sm" @click.stop="restoreNote(note)" title="恢复">♻️</button>
-              <button class="btn btn-ghost btn-icon btn-sm" @click.stop="deleteNote(note)" title="永久删除">🗑️</button>
+          <div class="note-card-open note-card-readonly">
+            <div class="note-card-header">
+              <h3 class="note-title">{{ note.title }}</h3>
+            </div>
+            <p class="note-preview">{{ note.preview || '空笔记' }}</p>
+            <div class="note-card-footer">
+              <span class="note-category">{{ note.categoryName }}</span>
+              <span class="note-time">{{ formatTime(note.updatedAt) }}</span>
             </div>
           </div>
-          <p class="note-preview">{{ note.preview || '空笔记' }}</p>
-          <div class="note-card-footer">
-            <span class="note-category">{{ note.categoryName }}</span>
-            <span class="note-time">{{ formatTime(note.updatedAt) }}</span>
+          <div class="note-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" @click="restoreNote(note)" title="恢复" aria-label="恢复">
+              <RotateCcw :size="17" aria-hidden="true" />
+            </button>
+            <button class="btn btn-ghost btn-icon btn-sm" @click="deleteNote(note)" title="永久删除" aria-label="永久删除">
+              <Trash2 :size="17" aria-hidden="true" />
+            </button>
           </div>
-        </div>
+        </article>
       </template>
     </div>
 
     <!-- Empty State -->
     <div v-else class="empty-state">
-      <div class="empty-state-icon">{{ isTrash ? '🗑️' : '📝' }}</div>
+      <Trash2 v-if="isTrash" class="empty-state-icon" :size="48" aria-hidden="true" />
+      <NotebookPen v-else class="empty-state-icon" :size="48" aria-hidden="true" />
       <p class="empty-state-text">
         {{ isTrash ? '回收站是空的' : isSearch ? '没有找到匹配的笔记' : '还没有笔记' }}
       </p>
@@ -130,10 +148,11 @@
     <div class="editor-pane" :class="{ 'mobile-hidden': !route.query.noteId && !route.query.newNote, 'mobile-editing': route.query.noteId || route.query.newNote }">
       <NoteEditorView 
         v-if="route.query.noteId || route.query.newNote"
+        ref="editorRef"
         :key="(route.query.noteId as string) || 'new'"
       />
       <div v-else class="empty-editor-state">
-        <div class="empty-icon">📝</div>
+        <NotebookPen class="empty-icon" :size="48" aria-hidden="true" />
         <p>请选择一条笔记或创建新笔记</p>
       </div>
     </div>
@@ -143,6 +162,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch, inject, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { NotebookPen, Pin, PinOff, RotateCcw, Trash2 } from '@lucide/vue';
 import { useNotesStore, type NoteListItem } from '@/stores/notes';
 import NoteEditorView from '@/views/NoteEditorView.vue';
 
@@ -150,9 +170,11 @@ const route = useRoute();
 const router = useRouter();
 const notesStore = useNotesStore();
 const showToast = inject<(msg: string, type: string) => void>('showToast')!;
+const editorRef = ref<{ flushSave: (showFeedback?: boolean) => Promise<boolean> } | null>(null);
 
 const isTrash = computed(() => route.name === 'Trash');
 const isSearch = computed(() => route.name === 'Search');
+const selectedNoteId = computed(() => route.query.noteId as string | undefined);
 
 const pinnedNotes = computed(() => isTrash.value ? [] : notesStore.notes.filter((n: any) => n.isPinned));
 const unpinnedNotes = computed(() => isTrash.value ? [] : notesStore.notes.filter((n: any) => !n.isPinned));
@@ -239,7 +261,20 @@ async function deleteNote(note: NoteListItem) {
   if (!confirm(msg)) return;
 
   try {
+    if (selectedNoteId.value === note.id && editorRef.value) {
+      const saved = await editorRef.value.flushSave();
+      if (!saved) {
+        showToast('保存失败，已取消删除', 'error');
+        return;
+      }
+    }
     await notesStore.deleteNote(note.id, isTrash.value);
+    if (selectedNoteId.value === note.id) {
+      const newQuery = { ...route.query };
+      delete newQuery.noteId;
+      delete newQuery.newNote;
+      await router.replace({ path: route.path, query: newQuery });
+    }
     await loadNotes();
     showToast(isTrash.value ? '已永久删除' : '已移入回收站', 'success');
   } catch {
@@ -270,7 +305,7 @@ async function emptyTrash() {
 
 // Resizer logic
 const notesListPaneRef = ref<HTMLElement>();
-const listWidth = ref(parseInt(localStorage.getItem('notesListWidth') || '320'));
+const listWidth = ref(parseInt(localStorage.getItem('notesListWidth') || '360'));
 const isResizing = ref(false);
 
 function startResize() {
@@ -313,7 +348,7 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
   display: flex;
   height: 100%;
   overflow: hidden;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm);
 }
 
 .notes-list-pane {
@@ -342,7 +377,8 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
   display: flex;
   flex-direction: column;
   min-width: 0; /* prevent flex blowout */
-  border-radius: var(--radius-md);
+  border-radius: 0 0 0 var(--radius-md);
+  background: var(--color-bg-secondary);
   overflow: hidden;
 }
 
@@ -354,7 +390,7 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
   justify-content: center;
   color: var(--color-text-muted);
   background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
+  border-radius: inherit;
 }
 
 .empty-icon {
@@ -370,8 +406,8 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
 }
 
 .note-card {
-  padding: var(--spacing-lg);
-  cursor: pointer;
+  position: relative;
+  overflow: hidden;
   transition: all var(--transition-normal);
 }
 
@@ -379,11 +415,34 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
   transform: translateY(-2px);
 }
 
+.note-card.selected {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  box-shadow: 0 8px 24px var(--color-shadow);
+  background: var(--color-accent-light);
+}
+
+.note-card-open {
+  width: 100%;
+  padding: var(--spacing-lg);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-card-readonly {
+  cursor: default;
+}
+
 .note-card-header {
   display: flex;
   align-items: flex-start;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-sm);
+  padding-right: 76px;
 }
 
 .pin-icon {
@@ -403,13 +462,17 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
 }
 
 .note-actions {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
   display: flex;
-  gap: 2px;
+  gap: var(--spacing-xs);
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
 
-.note-card:hover .note-actions {
+.note-card:hover .note-actions,
+.note-card:focus-within .note-actions {
   opacity: 1;
 }
 
@@ -482,6 +545,7 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
     border-right: none;
     padding-right: 0;
     flex: 1; /* when shown and no note selected */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 
   .editor-pane.mobile-editing {
@@ -499,7 +563,17 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
   }
 
   .note-card {
+    transform: none;
+  }
+
+  .note-card-open {
     padding: var(--spacing-md);
+  }
+
+  .note-actions {
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    gap: var(--spacing-sm);
   }
 
   .desktop-only {
@@ -508,6 +582,21 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
 }
 
 @media (min-width: 769px) {
+  .notes-list-pane {
+    padding-top: var(--spacing-md);
+  }
+
+  .notes-list-pane .page-header {
+    margin-bottom: 0;
+  }
+
+  .editor-pane {
+    margin-left: calc(-1 * var(--spacing-md));
+    padding-top: var(--spacing-md);
+    padding-right: var(--spacing-md);
+    padding-left: var(--spacing-md);
+  }
+
   .mobile-only {
     display: none !important;
   }

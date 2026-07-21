@@ -17,6 +17,19 @@ import {
   liftListItemCommand
 } from '@milkdown/preset-commonmark';
 import { toggleStrikethroughCommand } from '@milkdown/preset-gfm';
+import {
+  Bold,
+  Ellipsis,
+  Heading2,
+  Heading3,
+  ImagePlus,
+  Italic,
+  List,
+  ListChecks,
+  ListOrdered,
+  Paperclip,
+  Strikethrough,
+} from '@lucide/vue';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
@@ -46,7 +59,7 @@ const { get } = useEditor((root) => {
     },
     featureConfigs: {
       [CrepeFeature.Placeholder]: {
-        text: '开始写点什么...',
+        text: '首个非空行将作为标题，开始写点什么…',
       },
       [CrepeFeature.ImageBlock]: {
         onUpload: props.imageUpload
@@ -239,26 +252,54 @@ async function onFilePicked(event: Event) {
     } catch {}
   }
 }
+
+function getMarkdown() {
+  return crepeRef.value?.getMarkdown() ?? props.defaultValue;
+}
+
+defineExpose({ getMarkdown });
 </script>
 
 <template>
   <div class="custom-editor-wrapper">
     <!-- Static Toolbar -->
-    <div class="editor-toolbar">
-      <button class="toolbar-btn font-bold" @mousedown.prevent="execCommand(toggleStrongCommand.key)" title="加粗 (Ctrl+B)">B</button>
-      <button class="toolbar-btn line-through" @mousedown.prevent="execCommand(toggleStrikethroughCommand.key)" title="删除线">S</button>
+    <div class="editor-toolbar" role="toolbar" aria-label="编辑工具栏">
+      <button type="button" class="toolbar-btn" @mousedown.prevent="execCommand(toggleStrongCommand.key)" @keydown.enter.space.prevent="execCommand(toggleStrongCommand.key)" title="加粗 (Ctrl+B)" aria-label="加粗">
+        <Bold :size="18" aria-hidden="true" />
+      </button>
+      <button type="button" class="toolbar-btn" @mousedown.prevent="execCommand(toggleStrikethroughCommand.key)" @keydown.enter.space.prevent="execCommand(toggleStrikethroughCommand.key)" title="删除线" aria-label="删除线">
+        <Strikethrough :size="18" aria-hidden="true" />
+      </button>
       <div class="toolbar-divider"></div>
-      <button class="toolbar-btn" @mousedown.prevent="toggleList('bullet')" title="无序列表">• </button>
-      <button class="toolbar-btn" @mousedown.prevent="toggleList('ordered')" title="有序列表">1. </button>
-      <button class="toolbar-btn" @mousedown.prevent="toggleList('task')" title="待办清单">☑</button>
+      <button type="button" class="toolbar-btn" @mousedown.prevent="toggleList('bullet')" @keydown.enter.space.prevent="toggleList('bullet')" title="无序列表" aria-label="无序列表">
+        <List :size="18" aria-hidden="true" />
+      </button>
+      <button type="button" class="toolbar-btn" @mousedown.prevent="toggleList('ordered')" @keydown.enter.space.prevent="toggleList('ordered')" title="有序列表" aria-label="有序列表">
+        <ListOrdered :size="18" aria-hidden="true" />
+      </button>
+      <button type="button" class="toolbar-btn" @mousedown.prevent="toggleList('task')" @keydown.enter.space.prevent="toggleList('task')" title="待办清单" aria-label="待办清单">
+        <ListChecks :size="18" aria-hidden="true" />
+      </button>
       <div class="toolbar-divider"></div>
-      <button class="toolbar-btn" @mousedown.prevent="triggerImagePick()" title="插入图片">🖼️</button>
-      <button class="toolbar-btn mobile-more-btn font-bold" @mousedown.prevent="showFolded = !showFolded" title="更多选项" style="font-size:18px;">⋯</button>
-      <button class="toolbar-btn foldable italic"  :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(toggleEmphasisCommand.key)" title="斜体 (Ctrl+I)">I</button>
-      <button class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 2)" title="标题 (H2)">H2</button>
-      <button class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 3)" title="标题 (H3)">H3</button>
+      <button type="button" class="toolbar-btn" @mousedown.prevent="triggerImagePick()" @keydown.enter.space.prevent="triggerImagePick()" title="插入图片" aria-label="插入图片">
+        <ImagePlus :size="18" aria-hidden="true" />
+      </button>
+      <button type="button" class="toolbar-btn mobile-more-btn" @mousedown.prevent="showFolded = !showFolded" @keydown.enter.space.prevent="showFolded = !showFolded" title="更多选项" aria-label="更多选项" :aria-expanded="showFolded">
+        <Ellipsis :size="20" aria-hidden="true" />
+      </button>
+      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(toggleEmphasisCommand.key)" @keydown.enter.space.prevent="execCommand(toggleEmphasisCommand.key)" title="斜体 (Ctrl+I)" aria-label="斜体">
+        <Italic :size="18" aria-hidden="true" />
+      </button>
+      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 2)" @keydown.enter.space.prevent="execCommand(wrapInHeadingCommand.key, 2)" title="标题 (H2)" aria-label="二级标题">
+        <Heading2 :size="18" aria-hidden="true" />
+      </button>
+      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 3)" @keydown.enter.space.prevent="execCommand(wrapInHeadingCommand.key, 3)" title="标题 (H3)" aria-label="三级标题">
+        <Heading3 :size="18" aria-hidden="true" />
+      </button>
       <div class="toolbar-divider foldable" :class="{ 'is-open': showFolded }"></div>
-      <button class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="triggerFilePick()" title="上传附件">📎</button>
+      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="triggerFilePick()" @keydown.enter.space.prevent="triggerFilePick()" title="上传附件" aria-label="上传附件">
+        <Paperclip :size="18" aria-hidden="true" />
+      </button>
     </div>
 
     <!-- Hidden file inputs -->
@@ -294,7 +335,9 @@ async function onFilePicked(event: Event) {
 }
 
 .toolbar-btn {
-  padding: 4px 8px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--color-text-primary);
@@ -302,15 +345,14 @@ async function onFilePicked(event: Event) {
   cursor: pointer;
   font-size: var(--font-size-md);
   transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .toolbar-btn:hover {
   background: var(--color-bg-hover);
 }
-
-.font-bold { font-weight: bold; }
-.italic { font-style: italic; }
-.line-through { text-decoration: line-through; }
 
 .toolbar-divider {
   width: 1px;
@@ -373,11 +415,11 @@ async function onFilePicked(event: Event) {
     border-top: 1px solid var(--color-border);
     padding: 8px 4px;
     padding-bottom: env(safe-area-inset-bottom, 8px);
-    gap: 4px;
+    gap: 8px;
   }
   .toolbar-btn {
-    padding: 10px 14px;
-    font-size: var(--font-size-md);
+    width: 44px;
+    height: 44px;
   }
   .mobile-more-btn {
     display: inline-flex !important;

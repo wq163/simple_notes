@@ -27,6 +27,16 @@ interface BackupConfigRow {
   updated_at: string;
 }
 
+interface BackupConnectionInput {
+  s3Endpoint?: string;
+  s3Region?: string;
+  s3Bucket?: string;
+  s3AccessKey?: string;
+  s3SecretKey?: string;
+  s3PathPrefix?: string;
+  retentionCount?: number;
+}
+
 function getBackupConfig(): BackupConfigRow | null {
   const db = getDb();
   return db.prepare('SELECT * FROM backup_config WHERE id = 1').get() as BackupConfigRow | null;
@@ -42,6 +52,25 @@ function createS3Client(cfg: BackupConfigRow): S3Client {
     },
     forcePathStyle: true, // 兼容 MinIO 等自建对象存储
   });
+}
+
+function resolveConnectionConfig(input: BackupConnectionInput): BackupConfigRow {
+  const existing = getBackupConfig();
+  const secretKey = input.s3SecretKey === '****'
+    ? existing?.s3_secret_key || ''
+    : input.s3SecretKey || '';
+
+  return {
+    id: existing?.id || 1,
+    s3_endpoint: input.s3Endpoint || '',
+    s3_region: input.s3Region || 'us-east-1',
+    s3_bucket: input.s3Bucket || '',
+    s3_access_key: input.s3AccessKey || '',
+    s3_secret_key: secretKey,
+    s3_path_prefix: input.s3PathPrefix || 'notes-backup',
+    retention_count: input.retentionCount || 5,
+    updated_at: existing?.updated_at || '',
+  };
 }
 
 // ---- GET /config — 获取 S3 配置（脱敏） ----
@@ -117,11 +146,11 @@ router.put('/config', (req: Request, res: Response) => {
 });
 
 // ---- POST /test — 测试 S3 连接 ----
-router.post('/test', async (_req: Request, res: Response) => {
+router.post('/test', async (req: Request, res: Response) => {
   try {
-    const cfg = getBackupConfig();
-    if (!cfg || !cfg.s3_endpoint || !cfg.s3_bucket || !cfg.s3_access_key || !cfg.s3_secret_key) {
-      res.status(400).json({ error: '请先完善 S3 配置信息' });
+    const cfg = resolveConnectionConfig(req.body || {});
+    if (!cfg.s3_endpoint || !cfg.s3_bucket || !cfg.s3_access_key || !cfg.s3_secret_key) {
+      res.status(400).json({ error: '请完善当前表单中的 S3 配置信息' });
       return;
     }
 

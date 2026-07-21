@@ -10,16 +10,17 @@
         <h3 class="settings-section-title">个人信息</h3>
 
         <div class="form-group">
-          <label class="form-label">用户名</label>
-          <input class="form-input" :value="authStore.user?.username" disabled />
+          <label class="form-label" for="account-username">用户名</label>
+          <input id="account-username" class="form-input" :value="authStore.user?.username" disabled />
         </div>
 
         <div class="form-group">
-          <label class="form-label">显示名称</label>
-          <input v-model="displayName" class="form-input" placeholder="输入显示名称" />
+          <label class="form-label" for="display-name">显示名称</label>
+          <input id="display-name" v-model="displayName" class="form-input" placeholder="输入显示名称" />
         </div>
 
         <button class="btn btn-primary" @click="updateProfile" :disabled="!displayName.trim()">
+          <Save :size="17" aria-hidden="true" />
           保存
         </button>
       </div>
@@ -29,26 +30,32 @@
         <h3 class="settings-section-title">修改密码</h3>
 
         <div class="form-group">
-          <label class="form-label">旧密码</label>
-          <input v-model="oldPassword" class="form-input" type="password" placeholder="输入旧密码" />
+          <label class="form-label" for="old-password">旧密码</label>
+          <input id="old-password" v-model="oldPassword" class="form-input" type="password" placeholder="输入旧密码" />
         </div>
 
         <div class="form-group">
-          <label class="form-label">新密码</label>
-          <input v-model="newPassword" class="form-input" type="password" placeholder="输入新密码（至少4个字符）" />
+          <label class="form-label" for="new-password">新密码</label>
+          <input id="new-password" v-model="newPassword" class="form-input" type="password" placeholder="输入新密码（至少4个字符）" />
         </div>
 
         <div class="form-group">
-          <label class="form-label">确认新密码</label>
-          <input v-model="confirmPassword" class="form-input" type="password" placeholder="再次输入新密码" />
+          <label class="form-label" for="confirm-password">确认新密码</label>
+          <input id="confirm-password" v-model="confirmPassword" class="form-input" type="password" placeholder="再次输入新密码" />
         </div>
 
-        <button class="btn btn-primary" @click="changePassword">修改密码</button>
+        <button class="btn btn-primary" @click="changePassword">
+          <KeyRound :size="17" aria-hidden="true" />
+          修改密码
+        </button>
       </div>
 
       <!-- Logout -->
       <div class="settings-card card">
-        <button class="btn btn-danger" @click="handleLogout">退出登录</button>
+        <button class="btn btn-danger" @click="handleLogout">
+          <LogOut :size="17" aria-hidden="true" />
+          退出登录
+        </button>
       </div>
     </div>
   </div>
@@ -57,6 +64,7 @@
 <script setup lang="ts">
 import { ref, onMounted, inject } from 'vue';
 import { useRouter } from 'vue-router';
+import { KeyRound, LogOut, Save } from '@lucide/vue';
 import { useAuthStore } from '@/stores/auth';
 import api from '@/api';
 

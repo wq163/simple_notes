@@ -2,7 +2,10 @@
   <div class="admin-view">
     <div class="page-header">
       <h1 class="page-title">用户管理</h1>
-      <button class="btn btn-primary btn-sm" @click="showAddModal = true">+ 创建用户</button>
+      <button class="btn btn-primary btn-sm" @click="showAddModal = true">
+        <UserPlus :size="17" aria-hidden="true" />
+        创建用户
+      </button>
     </div>
 
     <div class="items-list">
@@ -17,37 +20,40 @@
         </div>
         <div class="item-actions">
           <button v-if="user.role !== 'admin'" class="btn btn-ghost btn-sm" @click="deleteUser(user)">
-            🗑️ 删除
+            <Trash2 :size="16" aria-hidden="true" />
+            删除
           </button>
         </div>
       </div>
     </div>
 
     <!-- Create User Modal -->
-    <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-      <div class="modal-content">
+    <div v-if="showAddModal" class="modal-overlay" @click.self="closeModal">
+      <div ref="dialogRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="user-dialog-title" tabindex="-1">
         <div class="modal-header">
-          <h2 class="modal-title">创建用户</h2>
-          <button class="btn btn-ghost btn-icon" @click="showAddModal = false">✕</button>
+          <h2 id="user-dialog-title" class="modal-title">创建用户</h2>
+          <button class="btn btn-ghost btn-icon" @click="closeModal" aria-label="关闭">
+            <X :size="18" aria-hidden="true" />
+          </button>
         </div>
 
         <div class="form-group">
-          <label class="form-label">用户名</label>
-          <input v-model="newUser.username" class="form-input" placeholder="用户名" />
+          <label class="form-label" for="new-username">用户名</label>
+          <input id="new-username" v-model="newUser.username" class="form-input" placeholder="用户名" data-autofocus />
         </div>
 
         <div class="form-group">
-          <label class="form-label">密码</label>
-          <input v-model="newUser.password" class="form-input" type="password" placeholder="密码（至少4个字符）" />
+          <label class="form-label" for="new-password">密码</label>
+          <input id="new-password" v-model="newUser.password" class="form-input" type="password" placeholder="密码（至少4个字符）" />
         </div>
 
         <div class="form-group">
-          <label class="form-label">显示名称（可选）</label>
-          <input v-model="newUser.displayName" class="form-input" placeholder="显示名称" />
+          <label class="form-label" for="new-display-name">显示名称（可选）</label>
+          <input id="new-display-name" v-model="newUser.displayName" class="form-input" placeholder="显示名称" />
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showAddModal = false">取消</button>
+          <button class="btn btn-secondary" @click="closeModal">取消</button>
           <button class="btn btn-primary" @click="createUser" :disabled="!newUser.username || !newUser.password">创建</button>
         </div>
       </div>
@@ -57,7 +63,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, inject } from 'vue';
+import { Trash2, UserPlus, X } from '@lucide/vue';
 import api from '@/api';
+import { useModalFocus } from '@/composables/useModalFocus';
 
 const showToast = inject<(msg: string, type: string) => void>('showToast')!;
 
@@ -72,6 +80,12 @@ interface UserItem {
 const users = ref<UserItem[]>([]);
 const showAddModal = ref(false);
 const newUser = reactive({ username: '', password: '', displayName: '' });
+
+function closeModal() {
+  showAddModal.value = false;
+}
+
+const { dialogRef } = useModalFocus(showAddModal, closeModal);
 
 async function fetchUsers() {
   try {
@@ -90,7 +104,7 @@ async function createUser() {
       displayName: newUser.displayName || newUser.username,
     });
     showToast('用户已创建', 'success');
-    showAddModal.value = false;
+    closeModal();
     newUser.username = '';
     newUser.password = '';
     newUser.displayName = '';

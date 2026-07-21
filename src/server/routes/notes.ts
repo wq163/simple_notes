@@ -29,6 +29,24 @@ function titleToFilename(content: string): string {
 }
 
 /**
+ * Build a compact, readable list preview without exposing Markdown or HTML syntax.
+ */
+function contentToPreview(content: string): string {
+  const lines = content.split('\n').filter(line => line.trim());
+  return lines.slice(1).join(' ')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, ' $1 ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, ' $1 ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/(^|\s)(?:#{1,6}|>|[-+*]|\d+[.)])\s+/g, '$1')
+    .replace(/\[(?: |x|X)\]/g, ' ')
+    .replace(/[`*_~]/g, '')
+    .replace(/\\([#`*_~[\]()>+-])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 200);
+}
+
+/**
  * Resolve a unique .md file path inside `dir` for the given base name.
  * If `excludeCurrent` is provided (existing file_path), it is considered
  * the "same file" and not treated as a conflict.
@@ -68,6 +86,16 @@ router.get('/', (req: Request, res: Response) => {
         LEFT JOIN categories c ON n.category_id = c.id
         WHERE n.user_id = ? AND n.is_deleted = 1
         ORDER BY n.deleted_at DESC
+      `;
+      params = [userId];
+    } else if (search && typeof search === 'string' && search.trim()) {
+      query = `
+        SELECT n.id, n.category_id, n.file_path, n.is_pinned, n.created_at, n.updated_at,
+               c.name as category_name
+        FROM notes n
+        LEFT JOIN categories c ON n.category_id = c.id
+        WHERE n.user_id = ? AND n.is_deleted = 0
+        ORDER BY n.is_pinned DESC, n.updated_at DESC
       `;
       params = [userId];
     } else if (tagId) {
@@ -118,7 +146,7 @@ router.get('/', (req: Request, res: Response) => {
         const lines = content.split('\n').filter(l => l.trim());
         if (lines.length > 0) {
           title = lines[0].replace(/^#+\s*/, '').trim() || '无标题笔记';
-          preview = lines.slice(1, 4).join(' ').substring(0, 200);
+          preview = contentToPreview(content);
         }
       } catch { /* file might not exist yet */ }
 

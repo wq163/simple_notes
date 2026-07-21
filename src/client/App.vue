@@ -1,8 +1,8 @@
 <template>
   <div id="app-root" :class="{ 'dark-mode': isDark }">
-    <div class="toast-container" v-if="toasts.length">
+    <div class="toast-container" v-if="toasts.length" aria-live="polite" aria-atomic="false">
       <div v-for="toast in toasts" :key="toast.id"
-           class="toast" :class="`toast-${toast.type}`">
+           class="toast" :class="`toast-${toast.type}`" role="status">
         {{ toast.message }}
       </div>
     </div>

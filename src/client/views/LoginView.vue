@@ -3,15 +3,16 @@
     <div class="login-container">
       <div class="login-card">
         <div class="login-header">
-          <div class="login-logo">📝</div>
+          <NotebookPen class="login-logo" :size="48" aria-hidden="true" />
           <h1 class="login-title">Simple Notes</h1>
           <p class="login-subtitle">简洁优雅的个人记事应用</p>
         </div>
 
         <form @submit.prevent="handleLogin" class="login-form">
           <div class="form-group">
-            <label class="form-label">用户名</label>
+            <label class="form-label" for="login-username">用户名</label>
             <input
+              id="login-username"
               v-model="username"
               class="form-input"
               type="text"
@@ -22,8 +23,9 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">密码</label>
+            <label class="form-label" for="login-password">密码</label>
             <input
+              id="login-password"
               v-model="password"
               class="form-input"
               type="password"
@@ -53,6 +55,7 @@
 <script setup lang="ts">
 import { ref, inject } from 'vue';
 import { useRouter } from 'vue-router';
+import { NotebookPen } from '@lucide/vue';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 
@@ -117,7 +120,7 @@ async function handleLogin() {
 }
 
 .login-logo {
-  font-size: 48px;
+  color: var(--color-accent);
   margin-bottom: var(--spacing-sm);
 }
 
