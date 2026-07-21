@@ -5,7 +5,7 @@
       ref="notesListPaneRef"
       class="notes-list-pane" 
       :class="{ 'mobile-hidden': !!route.query.noteId || !!route.query.newNote }"
-      :style="{ width: listWidth + 'px', flex: 'none' }"
+      :style="{ width: listWidth + 'px' }"
     >
       <div class="page-header desktop-only" style="justify-content: space-between; align-items: center; display: flex;">
         <h1 class="page-title">{{ pageTitle }}</h1>
@@ -537,14 +537,17 @@ watch(() => [route.name, route.params.id, route.query.q], loadNotes);
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
   }
 
   .notes-list-pane {
     max-width: none !important;
     width: auto !important;
     border-right: none;
-    padding-right: 0;
+    margin-right: calc(-1 * var(--spacing-md));
+    padding-right: var(--spacing-md);
     flex: 1; /* when shown and no note selected */
+    min-height: 0;
     padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 

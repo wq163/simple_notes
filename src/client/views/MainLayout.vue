@@ -588,6 +588,11 @@ watch(
     flex-direction: column;
   }
 
+  .content-area.workspace-content {
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .content-area.editing-mode {
     padding: 0;
     background: var(--color-bg-secondary);
