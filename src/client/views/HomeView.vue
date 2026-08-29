@@ -170,7 +170,7 @@ const route = useRoute();
 const router = useRouter();
 const notesStore = useNotesStore();
 const showToast = inject<(msg: string, type: string) => void>('showToast')!;
-const editorRef = ref<{ flushSave: (showFeedback?: boolean) => Promise<boolean> } | null>(null);
+const editorRef = ref<{ flushSave: (showErrorFeedback?: boolean) => Promise<boolean> } | null>(null);
 
 const isTrash = computed(() => route.name === 'Trash');
 const isSearch = computed(() => route.name === 'Search');

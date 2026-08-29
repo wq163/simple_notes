@@ -40,6 +40,7 @@ const showFolded = ref(false);
 const props = defineProps<{
   defaultValue: string;
   onChange?: (markdown: string) => void;
+  onReady?: (markdown: string) => void;
   imageUpload?: (file: File) => Promise<string>;
   fileUpload?: (file: File) => Promise<{ url: string; originalName: string; isImage: boolean }>;
 }>();
@@ -74,6 +75,9 @@ const { get } = useEditor((root) => {
 
   // Add markdown change listener
   crepe.on((api: any) => {
+    api.mounted(() => {
+      props.onReady?.(crepe.getMarkdown());
+    });
     api.markdownUpdated((_ctx: any, markdown: string) => {
       props.onChange?.(markdown);
     });

@@ -34,6 +34,7 @@
         ref="editorRef"
         :default-value="initialContent"
         :on-change="handleContentChange"
+        :on-ready="handleEditorReady"
         :image-upload="handleImageUpload"
         :file-upload="handleFileUpload"
       />
@@ -63,6 +64,7 @@ const selectedCategory = ref('');
 const selectedTags = ref<string[]>([]);
 const saving = ref(false);
 const editorReady = ref(false);
+const editorMounted = ref(false);
 const lastSavedContent = ref('');
 const lastSavedCategory = ref('');
 const lastSavedTags = ref<string[]>([]);
@@ -108,6 +110,14 @@ async function goBack() {
 
 function handleContentChange(markdown: string) {
   currentContent.value = markdown;
+}
+
+function handleEditorReady(markdown: string) {
+  currentContent.value = markdown;
+  lastSavedContent.value = markdown;
+  editorMounted.value = true;
+  clearAutoSaveTimer();
+  saveStatus.value = 'saved';
 }
 
 async function handleImageUpload(file: File): Promise<string> {
@@ -244,7 +254,7 @@ async function persistSnapshot(): Promise<boolean> {
   }
 }
 
-async function flushSave(showFeedback = false): Promise<boolean> {
+async function flushSave(showErrorFeedback = false): Promise<boolean> {
   syncEditorContent();
   clearAutoSaveTimer();
 
@@ -263,8 +273,8 @@ async function flushSave(showFeedback = false): Promise<boolean> {
   }
 
   const succeeded = await flushPromise;
-  if (showFeedback) {
-    showToast(succeeded ? '保存成功' : '保存失败，已保留当前内容', succeeded ? 'success' : 'error');
+  if (showErrorFeedback && !succeeded) {
+    showToast('保存失败，已保留当前内容', 'error');
   }
   return succeeded;
 }
@@ -291,7 +301,7 @@ onBeforeRouteUpdate(guardNavigation);
 onBeforeRouteLeave(guardNavigation);
 
 watch([currentContent, selectedCategory], () => {
-  if (!editorReady.value) return;
+  if (!editorReady.value || !editorMounted.value) return;
   if (isDirty.value) {
     if (saveStatus.value !== 'error') saveStatus.value = 'idle';
     scheduleAutoSave();
