@@ -40,12 +40,12 @@ const showFolded = ref(false);
 const props = defineProps<{
   defaultValue: string;
   onChange?: (markdown: string) => void;
-  onReady?: (markdown: string) => void;
   imageUpload?: (file: File) => Promise<string>;
   fileUpload?: (file: File) => Promise<{ url: string; originalName: string; isImage: boolean }>;
 }>();
 
 const crepeRef = shallowRef<Crepe>();
+let lastReportedMarkdown: string | null = null;
 
 const { get } = useEditor((root) => {
   const crepe = new Crepe({
@@ -76,10 +76,18 @@ const { get } = useEditor((root) => {
   // Add markdown change listener
   crepe.on((api: any) => {
     api.mounted(() => {
-      props.onReady?.(crepe.getMarkdown());
+      lastReportedMarkdown = crepe.getMarkdown();
     });
     api.markdownUpdated((_ctx: any, markdown: string) => {
+      lastReportedMarkdown = markdown;
       props.onChange?.(markdown);
+    });
+    api.blur(() => {
+      const markdown = crepe.getMarkdown();
+      if (lastReportedMarkdown !== null && markdown !== lastReportedMarkdown) {
+        lastReportedMarkdown = markdown;
+        props.onChange?.(markdown);
+      }
     });
   });
 

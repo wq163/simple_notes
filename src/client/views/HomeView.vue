@@ -233,6 +233,7 @@ async function openNote(note: NoteListItem) {
   if (isTrash.value) return;
   rememberListScroll();
   await router.push({ path: route.path, query: { ...route.query, noteId: note.id, newNote: undefined } });
+  void restoreListScroll();
 }
 
 function rememberListScroll() {
@@ -248,6 +249,7 @@ async function restoreListScroll() {
   const applyPosition = () => {
     const pane = notesListPaneRef.value;
     if (!pane || attempts >= 30) return;
+    if (getComputedStyle(pane).display === 'none') return;
     attempts++;
     pane.scrollTop = savedPosition;
     if (Math.abs(pane.scrollTop - savedPosition) > 1) {
@@ -350,7 +352,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('mouseup', onMouseUp);
 });
 
-watch(() => [route.name, route.params.id, route.query.q], loadNotes);
+watch(
+  [() => route.name, () => route.params.id, () => route.query.q],
+  loadNotes,
+);
 watch(isEditorOpen, (open, wasOpen) => {
   if (!open && wasOpen) void restoreListScroll();
 });

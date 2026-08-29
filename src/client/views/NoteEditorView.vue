@@ -34,7 +34,6 @@
         ref="editorRef"
         :default-value="initialContent"
         :on-change="handleContentChange"
-        :on-ready="handleEditorReady"
         :image-upload="handleImageUpload"
         :file-upload="handleFileUpload"
       />
@@ -64,7 +63,7 @@ const selectedCategory = ref('');
 const selectedTags = ref<string[]>([]);
 const saving = ref(false);
 const editorReady = ref(false);
-const editorMounted = ref(false);
+const contentChanged = ref(false);
 const lastSavedContent = ref('');
 const lastSavedCategory = ref('');
 const lastSavedTags = ref<string[]>([]);
@@ -80,7 +79,7 @@ let allowInternalNavigation = false;
 const isEditing = computed(() => !!route.query.noteId);
 const noteId = computed(() => route.query.noteId as string);
 const isDirty = computed(() => (
-  currentContent.value !== lastSavedContent.value
+  (contentChanged.value && currentContent.value !== lastSavedContent.value)
   || selectedCategory.value !== lastSavedCategory.value
   || selectedTags.value.join(',') !== lastSavedTags.value.join(',')
 ));
@@ -110,14 +109,7 @@ async function goBack() {
 
 function handleContentChange(markdown: string) {
   currentContent.value = markdown;
-}
-
-function handleEditorReady(markdown: string) {
-  currentContent.value = markdown;
-  lastSavedContent.value = markdown;
-  editorMounted.value = true;
-  clearAutoSaveTimer();
-  saveStatus.value = 'saved';
+  contentChanged.value = true;
 }
 
 async function handleImageUpload(file: File): Promise<string> {
@@ -285,7 +277,6 @@ async function saveNote() {
 
 async function guardNavigation() {
   if (allowInternalNavigation) return true;
-  syncEditorContent();
   if (!isDirty.value && !activeSave && !flushPromise) return true;
   return flushSave(true);
 }
@@ -301,7 +292,7 @@ onBeforeRouteUpdate(guardNavigation);
 onBeforeRouteLeave(guardNavigation);
 
 watch([currentContent, selectedCategory], () => {
-  if (!editorReady.value || !editorMounted.value) return;
+  if (!editorReady.value) return;
   if (isDirty.value) {
     if (saveStatus.value !== 'error') saveStatus.value = 'idle';
     scheduleAutoSave();

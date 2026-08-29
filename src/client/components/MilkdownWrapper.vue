@@ -4,7 +4,6 @@
       ref="editorRef"
       :default-value="defaultValue"
       :on-change="onChange"
-      :on-ready="onReady"
       :image-upload="imageUpload"
       :file-upload="fileUpload"
     />
@@ -19,7 +18,6 @@ import MilkdownEditor from './MilkdownEditorInner.vue';
 const props = defineProps<{
   defaultValue: string;
   onChange?: (markdown: string) => void;
-  onReady?: (markdown: string) => void;
   imageUpload?: (file: File) => Promise<string>;
   fileUpload?: (file: File) => Promise<{ url: string; originalName: string; isImage: boolean }>;
 }>();
