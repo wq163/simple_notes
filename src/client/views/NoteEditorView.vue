@@ -20,9 +20,9 @@
           <AlertCircle v-else-if="saveStatus === 'error'" :size="15" aria-hidden="true" />
           {{ saveStatusText }}
         </span>
-        <button class="btn btn-primary" @click="saveNote" :disabled="saving || !isDirty">
+        <button class="btn btn-primary" @click="saveNote">
           <Save :size="17" aria-hidden="true" />
-          {{ saving ? '保存中...' : '保存' }}
+          保存
         </button>
       </div>
     </div>
@@ -95,9 +95,7 @@ const saveStatusText = computed(() => {
 function handleKeyDown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();
-    if (!saving.value) {
-      void saveNote();
-    }
+    void saveNote();
   }
 }
 
@@ -171,7 +169,7 @@ function scheduleAutoSave() {
   autoSaveTimer = setTimeout(() => {
     autoSaveTimer = undefined;
     void flushSave();
-  }, 1000);
+  }, 5000);
 }
 
 async function refreshCurrentList() {

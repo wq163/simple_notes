@@ -145,7 +145,7 @@
         <div class="modal-footer">
           <button class="btn btn-ghost btn-sm" @click="testS3Connection" :disabled="testingConnection">
             <Link2 :size="16" aria-hidden="true" />
-            {{ testingConnection ? '测试中...' : '测试连接' }}
+            {{ testingConnection ? '测试中...' : '测试连接（不保存）' }}
           </button>
           <div class="modal-footer-right">
             <button class="btn btn-ghost btn-sm" @click="closeS3Modal">取消</button>
@@ -245,29 +245,54 @@ async function exportData() {
 async function openBackupConfig() {
   try {
     const { data } = await api.get('/admin/backup/config');
-    s3Form.value = {
-      s3Endpoint: data.s3Endpoint || '',
-      s3Region: data.s3Region || 'us-east-1',
-      s3Bucket: data.s3Bucket || '',
-      s3AccessKey: data.s3AccessKey || '',
-      s3SecretKey: data.s3SecretKey || '',
-      s3PathPrefix: data.s3PathPrefix || 'notes-backup',
-      retentionCount: data.retentionCount || 5,
-    };
-  } catch {
-    // Use defaults if config not loaded
+    applyBackupConfig(data);
+    showS3Modal.value = true;
+  } catch (e: any) {
+    showToast(e.response?.data?.error || '备份配置读取失败，请检查服务连接', 'error');
   }
-  showS3Modal.value = true;
+}
+
+function applyBackupConfig(data: any) {
+  s3Form.value = {
+    s3Endpoint: data.s3Endpoint || '',
+    s3Region: data.s3Region || 'us-east-1',
+    s3Bucket: data.s3Bucket || '',
+    s3AccessKey: data.s3AccessKey || '',
+    s3SecretKey: data.s3SecretKey || '',
+    s3PathPrefix: data.s3PathPrefix || 'notes-backup',
+    retentionCount: data.retentionCount || 5,
+  };
+}
+
+function backupConfigMatches(submitted: typeof s3Form.value, persisted: any) {
+  return persisted.s3Endpoint === submitted.s3Endpoint
+    && (persisted.s3Region || 'us-east-1') === (submitted.s3Region || 'us-east-1')
+    && persisted.s3Bucket === submitted.s3Bucket
+    && persisted.s3AccessKey === submitted.s3AccessKey
+    && (persisted.s3PathPrefix || 'notes-backup') === (submitted.s3PathPrefix || 'notes-backup')
+    && Number(persisted.retentionCount || 5) === Number(submitted.retentionCount || 5)
+    && persisted.s3SecretKey === (submitted.s3SecretKey ? '****' : '');
 }
 
 async function saveS3Config() {
   savingConfig.value = true;
+  let configWritten = false;
   try {
-    await api.put('/admin/backup/config', s3Form.value);
+    const submitted = { ...s3Form.value };
+    await api.put('/admin/backup/config', submitted);
+    configWritten = true;
+    const { data } = await api.get('/admin/backup/config');
+    if (!backupConfigMatches(submitted, data)) {
+      throw new Error('备份配置回读结果不一致');
+    }
+    applyBackupConfig(data);
     showToast('备份配置已保存', 'success');
     closeS3Modal();
   } catch (e: any) {
-    showToast(e.response?.data?.error || '保存失败', 'error');
+    const fallback = configWritten
+      ? '配置已提交，但数据库回读验证失败，请重试'
+      : '保存失败';
+    showToast(e.response?.data?.error || e.message || fallback, 'error');
   } finally {
     savingConfig.value = false;
   }

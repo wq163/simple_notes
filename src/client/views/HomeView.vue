@@ -175,6 +175,13 @@ const editorRef = ref<{ flushSave: (showFeedback?: boolean) => Promise<boolean> 
 const isTrash = computed(() => route.name === 'Trash');
 const isSearch = computed(() => route.name === 'Search');
 const selectedNoteId = computed(() => route.query.noteId as string | undefined);
+const isEditorOpen = computed(() => !!route.query.noteId || !!route.query.newNote);
+const listContextKey = computed(() => JSON.stringify([
+  route.name,
+  route.params.id || '',
+  route.query.q || '',
+]));
+const listScrollPositions = new Map<string, number>();
 
 const pinnedNotes = computed(() => isTrash.value ? [] : notesStore.notes.filter((n: any) => n.isPinned));
 const unpinnedNotes = computed(() => isTrash.value ? [] : notesStore.notes.filter((n: any) => !n.isPinned));
@@ -224,27 +231,30 @@ async function loadNotes() {
 
 async function openNote(note: NoteListItem) {
   if (isTrash.value) return;
-  // 保存所有可能的滚动容器的滚动位置
-  const pane = notesListPaneRef.value;
-  const contentArea = pane?.closest('.content-area') as HTMLElement | null;
-  const paneScroll = pane?.scrollTop ?? 0;
-  const contentScroll = contentArea?.scrollTop ?? 0;
-
+  rememberListScroll();
   await router.push({ path: route.path, query: { ...route.query, noteId: note.id, newNote: undefined } });
+}
 
-  // 用轮询机制持续恢复滚动位置，直到位置稳定或超时
-  // 浏览器可能在导航后的多个帧内异步重置 scrollTop
+function rememberListScroll() {
+  if (!notesListPaneRef.value) return;
+  listScrollPositions.set(listContextKey.value, notesListPaneRef.value.scrollTop);
+}
+
+async function restoreListScroll() {
+  const savedPosition = listScrollPositions.get(listContextKey.value);
+  if (savedPosition === undefined) return;
   await nextTick();
-  let frameCount = 0;
-  const maxFrames = 30; // 约 500ms
-  const restoreScroll = () => {
-    if (frameCount >= maxFrames) return;
-    frameCount++;
-    if (pane && pane.scrollTop !== paneScroll) pane.scrollTop = paneScroll;
-    if (contentArea && contentArea.scrollTop !== contentScroll) contentArea.scrollTop = contentScroll;
-    requestAnimationFrame(restoreScroll);
+  let attempts = 0;
+  const applyPosition = () => {
+    const pane = notesListPaneRef.value;
+    if (!pane || attempts >= 30) return;
+    attempts++;
+    pane.scrollTop = savedPosition;
+    if (Math.abs(pane.scrollTop - savedPosition) > 1) {
+      requestAnimationFrame(applyPosition);
+    }
   };
-  restoreScroll();
+  requestAnimationFrame(applyPosition);
 }
 
 async function togglePin(note: NoteListItem) {
@@ -341,6 +351,9 @@ onBeforeUnmount(() => {
 });
 
 watch(() => [route.name, route.params.id, route.query.q], loadNotes);
+watch(isEditorOpen, (open, wasOpen) => {
+  if (!open && wasOpen) void restoreListScroll();
+});
 </script>
 
 <style scoped>
