@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { adminMiddleware } from '../middleware/auth.js';
-import { getDb } from '../utils/database.js';
+import { checkpointDatabase, getDb } from '../utils/database.js';
 import { loadConfig } from '../utils/config.js';
 import fs from 'fs';
 import path from 'path';
@@ -179,6 +179,11 @@ router.post('/run', async (req: Request, res: Response) => {
     const cfg = getBackupConfig();
     if (!cfg || !cfg.s3_endpoint || !cfg.s3_bucket || !cfg.s3_access_key || !cfg.s3_secret_key) {
       res.status(400).json({ error: '请先配置 S3 信息' });
+      return;
+    }
+
+    if (!checkpointDatabase('TRUNCATE')) {
+      res.status(500).json({ error: '数据库 checkpoint 失败，已取消备份' });
       return;
     }
 

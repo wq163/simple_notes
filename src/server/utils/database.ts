@@ -6,6 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { loadConfig } from './config.js';
 
 let db: Database.Database | null = null;
+let checkpointTimer: ReturnType<typeof setInterval> | null = null;
+
+const WAL_AUTOCHECKPOINT_PAGES = 100;
+const CHECKPOINT_INTERVAL_MS = 8 * 60 * 60 * 1000;
 
 export function getDb(): Database.Database {
   if (db) return db;
@@ -33,8 +37,25 @@ export function getDb(): Database.Database {
   // Enable WAL mode for better concurrent performance
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  db.pragma(`wal_autocheckpoint = ${WAL_AUTOCHECKPOINT_PAGES}`);
+
+  checkpointTimer = setInterval(() => {
+    checkpointDatabase('PASSIVE');
+  }, CHECKPOINT_INTERVAL_MS);
+  checkpointTimer.unref();
 
   return db;
+}
+
+export function checkpointDatabase(mode: 'PASSIVE' | 'TRUNCATE' = 'PASSIVE'): boolean {
+  if (!db) return true;
+  try {
+    const result = db.pragma(`wal_checkpoint(${mode})`) as Array<{ busy?: number }>;
+    return !result.some(row => (row.busy || 0) > 0);
+  } catch (error) {
+    console.error(`SQLite ${mode} checkpoint failed:`, error);
+    return false;
+  }
 }
 
 export function createDefaultUserContent(userId: string): void {
@@ -250,7 +271,12 @@ export function initializeDatabase(): void {
 }
 
 export function closeDb(): void {
+  if (checkpointTimer) {
+    clearInterval(checkpointTimer);
+    checkpointTimer = null;
+  }
   if (db) {
+    checkpointDatabase('TRUNCATE');
     db.close();
     db = null;
   }
