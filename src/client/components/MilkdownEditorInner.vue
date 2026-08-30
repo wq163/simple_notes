@@ -46,6 +46,7 @@ const props = defineProps<{
 
 const crepeRef = shallowRef<Crepe>();
 let lastReportedMarkdown: string | null = null;
+let userInteracted = false;
 
 const { get } = useEditor((root) => {
   const crepe = new Crepe({
@@ -80,14 +81,15 @@ const { get } = useEditor((root) => {
     });
     api.markdownUpdated((_ctx: any, markdown: string) => {
       lastReportedMarkdown = markdown;
-      props.onChange?.(markdown);
+      if (userInteracted) props.onChange?.(markdown);
     });
     api.blur(() => {
       const markdown = crepe.getMarkdown();
-      if (lastReportedMarkdown !== null && markdown !== lastReportedMarkdown) {
+      if (userInteracted && lastReportedMarkdown !== null && markdown !== lastReportedMarkdown) {
         lastReportedMarkdown = markdown;
         props.onChange?.(markdown);
       }
+      userInteracted = false;
     });
   });
 
@@ -95,7 +97,22 @@ const { get } = useEditor((root) => {
   const pasteUploadPlugin = $prose(() => new Plugin({
     key: new PluginKey('clipboard-image-paste'),
     props: {
+      handleDOMEvents: {
+        beforeinput() {
+          userInteracted = true;
+          return false;
+        },
+        click() {
+          userInteracted = true;
+          return false;
+        },
+        drop() {
+          userInteracted = true;
+          return false;
+        },
+      },
       handlePaste(view, event) {
+        userInteracted = true;
         const clipboardData = event.clipboardData;
         if (!clipboardData) return false;
 
@@ -142,6 +159,7 @@ function execCommand(command: any, payload?: any) {
   // If useEditor unwrapped it, it might not have .editor
   const actionRunner = editorObj.action ? editorObj : editorObj.editor;
   if (actionRunner && actionRunner.action) {
+    userInteracted = true;
     actionRunner.action(callCommand(command, payload));
   }
 }
@@ -151,6 +169,7 @@ function toggleList(type: 'bullet' | 'ordered' | 'task') {
   if (!editorObj) return;
   const actionRunner = editorObj.action ? editorObj : editorObj.editor;
   if (actionRunner && actionRunner.action) {
+    userInteracted = true;
     actionRunner.action((ctx: any) => {
       const commands = ctx.get(commandsCtx);
       const view = ctx.get(editorViewCtx);
@@ -212,10 +231,12 @@ const imageInputRef = shallowRef<HTMLInputElement>();
 const fileInputRef = shallowRef<HTMLInputElement>();
 
 function triggerImagePick() {
+  userInteracted = true;
   imageInputRef.value?.click();
 }
 
 function triggerFilePick() {
+  userInteracted = true;
   fileInputRef.value?.click();
 }
 
@@ -224,6 +245,7 @@ function insertMarkdown(md: string) {
   if (!editorObj) return;
   const actionRunner = editorObj.action ? editorObj : editorObj.editor;
   if (actionRunner && actionRunner.action) {
+    userInteracted = true;
     actionRunner.action(insert(md));
   }
 }

@@ -32,6 +32,11 @@ const router = createRouter({
           component: () => import('@/views/HomeView.vue'),
         },
         {
+          path: 'notebook/:id',
+          name: 'Notebook',
+          component: () => import('@/views/HomeView.vue'),
+        },
+        {
           path: 'tag/:id',
           name: 'Tag',
           component: () => import('@/views/HomeView.vue'),

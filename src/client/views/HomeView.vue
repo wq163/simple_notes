@@ -174,6 +174,7 @@ const editorRef = ref<{ flushSave: (showErrorFeedback?: boolean) => Promise<bool
 
 const isTrash = computed(() => route.name === 'Trash');
 const isSearch = computed(() => route.name === 'Search');
+const isNotebook = computed(() => route.name === 'Notebook');
 const selectedNoteId = computed(() => route.query.noteId as string | undefined);
 const isEditorOpen = computed(() => !!route.query.noteId || !!route.query.newNote);
 const listContextKey = computed(() => JSON.stringify([
@@ -189,6 +190,10 @@ const unpinnedNotes = computed(() => isTrash.value ? [] : notesStore.notes.filte
 const pageTitle = computed(() => {
   if (isTrash.value) return '回收站';
   if (isSearch.value) return `搜索: ${route.query.q || ''}`;
+  if (isNotebook.value) {
+    const notebook = notesStore.notebooks.find(item => item.id === route.params.id);
+    return notebook?.name || '笔记本';
+  }
   if (route.name === 'Category') {
     const cat = notesStore.categories.find(c => c.id === route.params.id);
     return cat?.name || '分类';
@@ -220,6 +225,8 @@ async function loadNotes() {
     await notesStore.fetchNotes({ trash: true });
   } else if (isSearch.value) {
     await notesStore.fetchNotes({ search: route.query.q as string });
+  } else if (isNotebook.value) {
+    await notesStore.fetchNotes({ notebookId: route.params.id as string });
   } else if (route.name === 'Category') {
     await notesStore.fetchNotes({ categoryId: route.params.id as string });
   } else if (route.name === 'Tag') {
@@ -426,6 +433,7 @@ watch(isEditorOpen, (open, wasOpen) => {
 .note-card {
   position: relative;
   overflow: hidden;
+  border-radius: var(--radius-md);
   transition: all var(--transition-normal);
 }
 

@@ -7,6 +7,17 @@ export interface Category {
   isDefault: boolean;
   sortOrder: number;
   noteCount: number;
+  totalNoteCount: number;
+  notebookId: string | null;
+  notebookName: string | null;
+}
+
+export interface Notebook {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+  createdAt: string;
 }
 
 export interface Tag {
@@ -41,6 +52,7 @@ export interface NoteDetail {
 
 interface NotesState {
   notes: NoteListItem[];
+  notebooks: Notebook[];
   categories: Category[];
   tags: Tag[];
   loading: boolean;
@@ -49,6 +61,7 @@ interface NotesState {
 export const useNotesStore = defineStore('notes', {
   state: (): NotesState => ({
     notes: [],
+    notebooks: [],
     categories: [],
     tags: [],
     loading: false,
@@ -64,19 +77,25 @@ export const useNotesStore = defineStore('notes', {
       this.categories = data;
     },
 
+    async fetchNotebooks() {
+      const { data } = await api.get('/notebooks');
+      this.notebooks = data;
+    },
+
     async fetchTags() {
       const { data } = await api.get('/tags');
       this.tags = data;
     },
 
     async fetchNotes(
-      params?: { categoryId?: string; tagId?: string; search?: string; trash?: boolean },
+      params?: { categoryId?: string; notebookId?: string; tagId?: string; search?: string; trash?: boolean },
       options?: { silent?: boolean },
     ) {
       if (!options?.silent) this.loading = true;
       try {
         const query: any = {};
         if (params?.categoryId) query.categoryId = params.categoryId;
+        if (params?.notebookId) query.notebookId = params.notebookId;
         if (params?.tagId) query.tagId = params.tagId;
         if (params?.search) query.search = params.search;
         if (params?.trash) query.trash = '1';
@@ -121,16 +140,43 @@ export const useNotesStore = defineStore('notes', {
       return data.isPinned;
     },
 
-    async createCategory(name: string) {
-      const { data } = await api.post('/categories', { name });
+    async createNotebook(name: string) {
+      const { data } = await api.post('/notebooks', { name });
+      const { category, ...notebook } = data;
+      this.notebooks.push(notebook);
+      this.categories.push(category);
+      return notebook as Notebook;
+    },
+
+    async updateNotebook(id: string, name: string) {
+      await api.put(`/notebooks/${id}`, { name });
+      const notebook = this.notebooks.find(item => item.id === id);
+      if (notebook) notebook.name = name;
+      this.categories
+        .filter(category => category.notebookId === id)
+        .forEach(category => { category.notebookName = name; });
+    },
+
+    async deleteNotebook(id: string) {
+      await api.delete(`/notebooks/${id}`);
+      this.notebooks = this.notebooks.filter(item => item.id !== id);
+    },
+
+    async createCategory(name: string, notebookId: string) {
+      const { data } = await api.post('/categories', { name, notebookId });
       this.categories.push(data);
       return data;
     },
 
-    async updateCategory(id: string, name: string) {
-      await api.put(`/categories/${id}`, { name });
+    async updateCategory(id: string, payload: { name: string; notebookId: string }) {
+      await api.put(`/categories/${id}`, payload);
       const cat = this.categories.find(c => c.id === id);
-      if (cat) cat.name = name;
+      const notebook = this.notebooks.find(item => item.id === payload.notebookId);
+      if (cat) {
+        cat.name = payload.name;
+        cat.notebookId = payload.notebookId;
+        cat.notebookName = notebook?.name || null;
+      }
     },
 
     async deleteCategory(id: string) {

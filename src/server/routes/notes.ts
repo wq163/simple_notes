@@ -69,7 +69,7 @@ function resolveUniqueFilePath(dir: string, baseName: string, excludeCurrent?: s
 // GET /api/notes - List notes (with filtering)
 router.get('/', (req: Request, res: Response) => {
   try {
-    const { categoryId, tagId, search, trash } = req.query;
+    const { categoryId, notebookId, tagId, search, trash } = req.query;
     const db = getDb();
     const userId = req.user!.userId;
     const config = loadConfig();
@@ -119,6 +119,16 @@ router.get('/', (req: Request, res: Response) => {
         ORDER BY n.is_pinned DESC, n.updated_at DESC
       `;
       params = [userId, categoryId as string];
+    } else if (notebookId) {
+      query = `
+        SELECT n.id, n.category_id, n.file_path, n.is_pinned, n.created_at, n.updated_at,
+               c.name as category_name
+        FROM notes n
+        JOIN categories c ON n.category_id = c.id
+        WHERE n.user_id = ? AND c.notebook_id = ? AND n.is_deleted = 0
+        ORDER BY n.is_pinned DESC, n.updated_at DESC
+      `;
+      params = [userId, notebookId as string];
     } else {
       // Default: show notes in default category
       query = `

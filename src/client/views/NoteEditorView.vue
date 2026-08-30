@@ -8,7 +8,7 @@
       <div class="editor-meta">
         <select v-model="selectedCategory" class="form-input category-select" aria-label="笔记分类">
           <option v-for="cat in notesStore.categories" :key="cat.id" :value="cat.id">
-            {{ cat.name }}
+            {{ categoryOptionLabel(cat) }}
           </option>
         </select>
         <span class="title-rule">首个非空行作为标题</span>
@@ -20,9 +20,8 @@
           <AlertCircle v-else-if="saveStatus === 'error'" :size="15" aria-hidden="true" />
           {{ saveStatusText }}
         </span>
-        <button class="btn btn-primary" @click="saveNote">
-          <Save :size="17" aria-hidden="true" />
-          保存
+        <button class="btn btn-ghost btn-icon" @click="saveNote" title="保存笔记" aria-label="保存笔记">
+          <Save :size="18" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -48,7 +47,7 @@
 import { ref, onMounted, onBeforeUnmount, inject, computed, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
 import { AlertCircle, ArrowLeft, CheckCircle2, LoaderCircle, Save } from '@lucide/vue';
-import { useNotesStore } from '@/stores/notes';
+import { useNotesStore, type Category } from '@/stores/notes';
 import MilkdownWrapper from '@/components/MilkdownWrapper.vue';
 import api from '@/api';
 
@@ -78,12 +77,13 @@ let allowInternalNavigation = false;
 
 const isEditing = computed(() => !!route.query.noteId);
 const noteId = computed(() => route.query.noteId as string);
-const isDirty = computed(() => (
+const isDirty = computed(() => editorReady.value && (
   (contentChanged.value && currentContent.value !== lastSavedContent.value)
   || selectedCategory.value !== lastSavedCategory.value
   || selectedTags.value.join(',') !== lastSavedTags.value.join(',')
 ));
 const saveStatusText = computed(() => {
+  if (!editorReady.value) return '加载中…';
   if (saveStatus.value === 'saving') return '保存中…';
   if (saveStatus.value === 'error') return '保存失败，请重试';
   if (saveStatus.value === 'saved' && lastSavedAt.value) {
@@ -91,6 +91,12 @@ const saveStatusText = computed(() => {
   }
   return isDirty.value ? '未保存' : '已保存';
 });
+
+function categoryOptionLabel(category: Category) {
+  return category.isDefault
+    ? '首页 - 默认'
+    : `${category.notebookName || '未分配笔记本'} - ${category.name}`;
+}
 
 // Ctrl+S / Cmd+S 快捷键保存
 function handleKeyDown(e: KeyboardEvent) {
@@ -175,7 +181,9 @@ function scheduleAutoSave() {
 }
 
 async function refreshCurrentList() {
-  if (route.name === 'Category') {
+  if (route.name === 'Notebook') {
+    await notesStore.fetchNotes({ notebookId: route.params.id as string }, { silent: true });
+  } else if (route.name === 'Category') {
     await notesStore.fetchNotes({ categoryId: route.params.id as string }, { silent: true });
   } else if (route.name === 'Tag') {
     await notesStore.fetchNotes({ tagId: route.params.id as string }, { silent: true });
@@ -272,6 +280,7 @@ async function flushSave(showErrorFeedback = false): Promise<boolean> {
 }
 
 async function saveNote() {
+  if (!editorReady.value) return;
   await flushSave(true);
 }
 
@@ -312,6 +321,16 @@ onMounted(async () => {
   // Set default category: 如果当前在某个分类页面，新建笔记默认使用该分类
   if (!isEditing.value && route.name === 'Category' && route.params.id) {
     selectedCategory.value = route.params.id as string;
+  } else if (!isEditing.value && route.name === 'Notebook' && route.params.id) {
+    const firstCategory = notesStore.categories
+      .filter(category => category.notebookId === route.params.id)
+      .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+    if (!firstCategory) {
+      showToast('请先为该笔记本创建分类', 'error');
+      await goBack();
+      return;
+    }
+    selectedCategory.value = firstCategory.id;
   } else {
     const defaultCat = notesStore.categories.find(c => c.isDefault);
     if (defaultCat) selectedCategory.value = defaultCat.id;

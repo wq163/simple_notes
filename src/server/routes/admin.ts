@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { getDb } from '../utils/database.js';
+import { createDefaultUserContent, getDb } from '../utils/database.js';
 import { ensureUserDirs } from '../utils/database.js';
 import { adminMiddleware } from '../middleware/auth.js';
 
@@ -58,20 +58,15 @@ router.post('/users', (req: Request, res: Response) => {
     const userId = uuidv4();
     const passwordHash = bcrypt.hashSync(password, 10);
 
-    db.prepare(`
-      INSERT INTO users (id, username, password_hash, display_name, role)
-      VALUES (?, ?, ?, ?, 'user')
-    `).run(userId, username, passwordHash, displayName || username);
+    db.transaction(() => {
+      db.prepare(`
+        INSERT INTO users (id, username, password_hash, display_name, role)
+        VALUES (?, ?, ?, ?, 'user')
+      `).run(userId, username, passwordHash, displayName || username);
 
-    // Create default category for new user
-    const defaultCatId = uuidv4();
-    db.prepare(`
-      INSERT INTO categories (id, user_id, name, is_default, sort_order)
-      VALUES (?, ?, '默认', 1, 0)
-    `).run(defaultCatId, userId);
-
-    // Create default settings
-    db.prepare('INSERT INTO user_settings (user_id) VALUES (?)').run(userId);
+      createDefaultUserContent(userId);
+      db.prepare('INSERT INTO user_settings (user_id) VALUES (?)').run(userId);
+    })();
 
     // Create user directories
     ensureUserDirs(username);

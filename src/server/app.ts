@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import adminRoutes from './routes/admin.js';
 import categoryRoutes from './routes/categories.js';
+import notebookRoutes from './routes/notebooks.js';
 import tagRoutes from './routes/tags.js';
 import noteRoutes from './routes/notes.js';
 import attachmentRoutes from './routes/attachments.js';
@@ -38,6 +39,7 @@ mainRouter.use('/api/auth', authRoutes);
 mainRouter.use('/api/users', authMiddleware, userRoutes);
 mainRouter.use('/api/admin', authMiddleware, adminRoutes);
 mainRouter.use('/api/categories', authMiddleware, categoryRoutes);
+mainRouter.use('/api/notebooks', authMiddleware, notebookRoutes);
 mainRouter.use('/api/tags', authMiddleware, tagRoutes);
 mainRouter.use('/api/notes', authMiddleware, noteRoutes);
 // Public: serve attachments (GET) without auth - images need this for <img src="...">

@@ -9,22 +9,36 @@ router.get('/', (req: Request, res: Response) => {
   try {
     const db = getDb();
     const categories = db.prepare(
-      'SELECT id, name, is_default, sort_order, created_at FROM categories WHERE user_id = ? ORDER BY is_default DESC, sort_order ASC, created_at ASC'
+      `SELECT c.id, c.name, c.is_default, c.sort_order, c.created_at,
+              c.notebook_id, nb.name AS notebook_name, nb.sort_order AS notebook_sort_order
+       FROM categories c
+       LEFT JOIN notebooks nb ON c.notebook_id = nb.id
+       WHERE c.user_id = ?
+       ORDER BY c.is_default DESC, nb.is_default DESC,
+                nb.sort_order ASC, nb.created_at ASC,
+                c.sort_order ASC, c.created_at ASC`
     ).all(req.user!.userId);
 
     // Count notes per category
     const countStmt = db.prepare(
       'SELECT COUNT(*) as count FROM notes WHERE category_id = ? AND is_deleted = 0'
     );
+    const totalCountStmt = db.prepare(
+      'SELECT COUNT(*) as count FROM notes WHERE category_id = ?'
+    );
 
     res.json(categories.map((c: any) => {
       const { count } = countStmt.get(c.id) as any;
+      const { count: totalCount } = totalCountStmt.get(c.id) as any;
       return {
         id: c.id,
         name: c.name,
         isDefault: !!c.is_default,
         sortOrder: c.sort_order,
         noteCount: count,
+        totalNoteCount: totalCount,
+        notebookId: c.notebook_id,
+        notebookName: c.notebook_name,
         createdAt: c.created_at,
       };
     }));
@@ -37,41 +51,46 @@ router.get('/', (req: Request, res: Response) => {
 // POST /api/categories
 router.post('/', (req: Request, res: Response) => {
   try {
-    const { name } = req.body;
+    const { name, notebookId } = req.body;
 
     if (!name || !name.trim()) {
       res.status(400).json({ error: '请输入分类名称' });
       return;
     }
+    if (!notebookId) {
+      res.status(400).json({ error: '请选择笔记本' });
+      return;
+    }
 
     const db = getDb();
-
-    // Check duplicate name
-    const existing = db.prepare(
-      'SELECT id FROM categories WHERE user_id = ? AND name = ?'
-    ).get(req.user!.userId, name.trim());
-
-    if (existing) {
-      res.status(400).json({ error: '分类名称已存在' });
+    const notebook = db.prepare(
+      'SELECT id, name FROM notebooks WHERE id = ? AND user_id = ?'
+    ).get(notebookId, req.user!.userId) as { id: string; name: string } | undefined;
+    if (!notebook) {
+      res.status(400).json({ error: '请选择有效的笔记本' });
       return;
     }
 
     const id = uuidv4();
     const maxOrder = db.prepare(
-      'SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?'
-    ).get(req.user!.userId) as any;
+      'SELECT MAX(sort_order) as maxOrder FROM categories WHERE notebook_id = ?'
+    ).get(notebookId) as any;
+    const sortOrder = (maxOrder?.maxOrder ?? -1) + 1;
 
     db.prepare(`
-      INSERT INTO categories (id, user_id, name, is_default, sort_order)
-      VALUES (?, ?, ?, 0, ?)
-    `).run(id, req.user!.userId, name.trim(), (maxOrder?.maxOrder || 0) + 1);
+      INSERT INTO categories (id, user_id, name, is_default, sort_order, notebook_id)
+      VALUES (?, ?, ?, 0, ?, ?)
+    `).run(id, req.user!.userId, name.trim(), sortOrder, notebookId);
 
     res.status(201).json({
       id,
       name: name.trim(),
       isDefault: false,
-      sortOrder: (maxOrder?.maxOrder || 0) + 1,
+      sortOrder,
       noteCount: 0,
+      totalNoteCount: 0,
+      notebookId,
+      notebookName: notebook.name,
     });
   } catch (error) {
     console.error('Create category error:', error);
@@ -83,11 +102,11 @@ router.post('/', (req: Request, res: Response) => {
 router.put('/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, sortOrder } = req.body;
+    const { name, sortOrder, notebookId } = req.body;
 
     const db = getDb();
     const category = db.prepare(
-      'SELECT id, is_default FROM categories WHERE id = ? AND user_id = ?'
+      'SELECT id, is_default, notebook_id FROM categories WHERE id = ? AND user_id = ?'
     ).get(id, req.user!.userId) as any;
 
     if (!category) {
@@ -106,16 +125,23 @@ router.put('/:id', (req: Request, res: Response) => {
         return;
       }
 
-      const existing = db.prepare(
-        'SELECT id FROM categories WHERE user_id = ? AND name = ? AND id != ?'
-      ).get(req.user!.userId, name.trim(), id);
+      db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(name.trim(), id);
+    }
 
-      if (existing) {
-        res.status(400).json({ error: '分类名称已存在' });
+    if (notebookId !== undefined && notebookId !== category.notebook_id) {
+      const notebook = db.prepare(
+        'SELECT id FROM notebooks WHERE id = ? AND user_id = ?'
+      ).get(notebookId, req.user!.userId);
+      if (!notebook) {
+        res.status(400).json({ error: '请选择有效的笔记本' });
         return;
       }
 
-      db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(name.trim(), id);
+      const maxOrder = db.prepare(
+        'SELECT MAX(sort_order) AS maxOrder FROM categories WHERE notebook_id = ?'
+      ).get(notebookId) as { maxOrder: number | null };
+      db.prepare('UPDATE categories SET notebook_id = ?, sort_order = ? WHERE id = ?')
+        .run(notebookId, (maxOrder?.maxOrder ?? -1) + 1, id);
     }
 
     if (sortOrder !== undefined) {
@@ -149,13 +175,13 @@ router.delete('/:id', (req: Request, res: Response) => {
       return;
     }
 
-    // Check if category has notes
+    // Check all notes, including trash, to preserve the category foreign key.
     const noteCount = db.prepare(
-      'SELECT COUNT(*) as count FROM notes WHERE category_id = ? AND is_deleted = 0'
+      'SELECT COUNT(*) as count FROM notes WHERE category_id = ?'
     ).get(id) as any;
 
     if (noteCount.count > 0) {
-      res.status(400).json({ error: '该分类下还有笔记，不能删除' });
+      res.status(400).json({ error: '该分类下还有笔记（包含回收站），不能删除' });
       return;
     }
 

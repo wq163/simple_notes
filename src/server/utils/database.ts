@@ -37,6 +37,95 @@ export function getDb(): Database.Database {
   return db;
 }
 
+export function createDefaultUserContent(userId: string): void {
+  const db = getDb();
+  const defaultCategoryId = uuidv4();
+  const defaultNotebookId = uuidv4();
+  const generalCategoryId = uuidv4();
+
+  db.prepare(`
+    INSERT INTO categories (id, user_id, name, is_default, sort_order, notebook_id)
+    VALUES (?, ?, '默认', 1, 0, NULL)
+  `).run(defaultCategoryId, userId);
+
+  db.prepare(`
+    INSERT INTO notebooks (id, user_id, name, is_default, sort_order)
+    VALUES (?, ?, '默认笔记本', 1, 0)
+  `).run(defaultNotebookId, userId);
+
+  db.prepare(`
+    INSERT INTO categories (id, user_id, name, is_default, sort_order, notebook_id)
+    VALUES (?, ?, '通用', 0, 0, ?)
+  `).run(generalCategoryId, userId, defaultNotebookId);
+}
+
+function migrateNotebooks(db: Database.Database): void {
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS notebooks (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `);
+
+    const columns = db.prepare('PRAGMA table_info(categories)').all() as Array<{ name: string }>;
+    if (!columns.some(column => column.name === 'notebook_id')) {
+      db.exec('ALTER TABLE categories ADD COLUMN notebook_id TEXT REFERENCES notebooks(id)');
+    }
+
+    const users = db.prepare('SELECT id FROM users').all() as Array<{ id: string }>;
+    const findDefaultNotebook = db.prepare(
+      'SELECT id FROM notebooks WHERE user_id = ? AND is_default = 1'
+    );
+    const insertDefaultNotebook = db.prepare(`
+      INSERT INTO notebooks (id, user_id, name, is_default, sort_order)
+      VALUES (?, ?, '默认笔记本', 1, 0)
+    `);
+    const attachCategories = db.prepare(`
+      UPDATE categories SET notebook_id = ?
+      WHERE user_id = ? AND is_default = 0 AND notebook_id IS NULL
+    `);
+    const countNotebookCategories = db.prepare(
+      'SELECT COUNT(*) AS count FROM categories WHERE notebook_id = ?'
+    );
+    const insertGeneralCategory = db.prepare(`
+      INSERT INTO categories (id, user_id, name, is_default, sort_order, notebook_id)
+      VALUES (?, ?, '通用', 0, 0, ?)
+    `);
+
+    for (const user of users) {
+      let notebook = findDefaultNotebook.get(user.id) as { id: string } | undefined;
+      if (!notebook) {
+        notebook = { id: uuidv4() };
+        insertDefaultNotebook.run(notebook.id, user.id);
+      }
+
+      attachCategories.run(notebook.id, user.id);
+      const { count } = countNotebookCategories.get(notebook.id) as { count: number };
+      if (count === 0) {
+        insertGeneralCategory.run(uuidv4(), user.id, notebook.id);
+      }
+    }
+
+    db.prepare('UPDATE categories SET notebook_id = NULL WHERE is_default = 1').run();
+  })();
+
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notebooks_one_default
+      ON notebooks(user_id) WHERE is_default = 1;
+    CREATE INDEX IF NOT EXISTS idx_notebooks_user_sort
+      ON notebooks(user_id, sort_order, created_at);
+    CREATE INDEX IF NOT EXISTS idx_categories_notebook_sort
+      ON categories(notebook_id, sort_order, created_at);
+  `);
+}
+
 export function initializeDatabase(): void {
   const db = getDb();
 
@@ -52,6 +141,17 @@ export function initializeDatabase(): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS notebooks (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -59,7 +159,9 @@ export function initializeDatabase(): void {
       is_default INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      notebook_id TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (notebook_id) REFERENCES notebooks(id)
     );
 
     CREATE TABLE IF NOT EXISTS tags (
@@ -113,6 +215,8 @@ export function initializeDatabase(): void {
     );
   `);
 
+  migrateNotebooks(db);
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
@@ -131,22 +235,15 @@ export function initializeDatabase(): void {
     const adminId = uuidv4();
     const passwordHash = bcrypt.hashSync(config.admin.defaultPassword, 10);
 
-    db.prepare(`
-      INSERT INTO users (id, username, password_hash, display_name, role)
-      VALUES (?, ?, ?, ?, 'admin')
-    `).run(adminId, config.admin.defaultUsername, passwordHash, config.admin.defaultUsername);
+    db.transaction(() => {
+      db.prepare(`
+        INSERT INTO users (id, username, password_hash, display_name, role)
+        VALUES (?, ?, ?, ?, 'admin')
+      `).run(adminId, config.admin.defaultUsername, passwordHash, config.admin.defaultUsername);
 
-    // Create default category for admin
-    const defaultCatId = uuidv4();
-    db.prepare(`
-      INSERT INTO categories (id, user_id, name, is_default, sort_order)
-      VALUES (?, ?, '默认', 1, 0)
-    `).run(defaultCatId, adminId);
-
-    // Create default settings for admin
-    db.prepare(`
-      INSERT INTO user_settings (user_id) VALUES (?)
-    `).run(adminId);
+      createDefaultUserContent(adminId);
+      db.prepare('INSERT INTO user_settings (user_id) VALUES (?)').run(adminId);
+    })();
 
     console.log(`✅ Default admin user created: ${config.admin.defaultUsername}`);
   }

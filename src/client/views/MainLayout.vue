@@ -18,22 +18,43 @@
           <span class="nav-text">首页</span>
         </router-link>
 
-        <!-- Categories Section -->
-        <div class="nav-section">
-          <div class="nav-section-heading">
-            <button type="button" class="nav-section-header" @click="showCategories = !showCategories" :aria-expanded="showCategories">
-              <Folder class="nav-icon" :size="18" aria-hidden="true" />
-              <span class="nav-text">分类</span>
-              <ChevronRight class="nav-arrow" :class="{ expanded: showCategories }" :size="15" aria-hidden="true" />
+        <div class="notebooks-divider">
+          <span>笔记本</span>
+          <div class="notebooks-divider-actions">
+            <button type="button" class="nav-manage-icon" @click="openNotebookModal" title="新建笔记本" aria-label="新建笔记本">
+              <span aria-hidden="true">+</span>
             </button>
-            <router-link to="/categories" class="nav-manage-icon" @click.stop title="管理分类">
+            <router-link to="/categories" class="nav-manage-icon" @click="closeSidebar" title="管理笔记本与分类">
               <Settings :size="16" aria-hidden="true" />
-              <span class="sr-only">管理分类</span>
+              <span class="sr-only">管理笔记本与分类</span>
             </router-link>
           </div>
-          <div v-if="showCategories" class="nav-sub-list">
+        </div>
+
+        <div v-for="notebook in notesStore.notebooks" :key="notebook.id" class="nav-section notebook-section">
+          <div class="nav-section-heading" :class="{ active: route.params.id === notebook.id && route.name === 'Notebook' }">
             <router-link
-              v-for="cat in notesStore.categories.filter((c: any) => !c.isDefault)"
+              :to="`/notebook/${notebook.id}`"
+              class="nav-section-header notebook-link"
+              :class="{ active: route.params.id === notebook.id && route.name === 'Notebook' }"
+              @click="closeSidebar"
+            >
+              <Folder class="nav-icon" :size="18" aria-hidden="true" />
+              <span class="nav-text">{{ notebook.name }}</span>
+            </router-link>
+            <button
+              type="button"
+              class="notebook-toggle"
+              @click="toggleNotebook(notebook.id)"
+              :aria-expanded="isNotebookExpanded(notebook.id)"
+              :aria-label="`${isNotebookExpanded(notebook.id) ? '收起' : '展开'}${notebook.name}分类`"
+            >
+              <ChevronRight class="nav-arrow" :class="{ expanded: isNotebookExpanded(notebook.id) }" :size="15" aria-hidden="true" />
+            </button>
+          </div>
+          <div v-if="isNotebookExpanded(notebook.id)" class="nav-sub-list">
+            <router-link
+              v-for="cat in categoriesForNotebook(notebook.id)"
               :key="cat.id"
               :to="`/category/${cat.id}`"
               class="nav-sub-item"
@@ -41,18 +62,16 @@
               @click="closeSidebar"
             >
               <span>{{ cat.name }}</span>
-              <span class="nav-count">{{ cat.noteCount }}</span>
             </router-link>
           </div>
         </div>
 
         <!-- Tags Section -->
-        <div class="nav-section">
+        <div class="nav-section tags-section">
           <div class="nav-section-heading">
             <button type="button" class="nav-section-header" @click="showTags = !showTags" :aria-expanded="showTags">
               <Tags class="nav-icon" :size="18" aria-hidden="true" />
               <span class="nav-text">标签</span>
-              <ChevronRight class="nav-arrow" :class="{ expanded: showTags }" :size="15" aria-hidden="true" />
             </button>
             <router-link to="/tags" class="nav-manage-icon" @click.stop title="管理标签">
               <Settings :size="16" aria-hidden="true" />
@@ -61,7 +80,7 @@
           </div>
           <div v-if="showTags" class="nav-sub-list">
             <router-link
-              v-for="tag in notesStore.tags"
+              v-for="tag in notesStore.tags.filter(item => item.noteCount > 0)"
               :key="tag.id"
               :to="`/tag/${tag.id}`"
               class="nav-sub-item"
@@ -162,14 +181,49 @@
     </main>
 
     <!-- FAB for mobile -->
-    <router-link v-show="!isMobileEditing" :to="{ path: route.path, query: { newNote: 'true' } }" class="fab mobile-only" aria-label="新建笔记">
+    <router-link
+      ref="fabRef"
+      v-show="!isMobileEditing"
+      :to="{ path: route.path, query: { newNote: 'true' } }"
+      class="fab mobile-only"
+      :class="{ 'fab-dragging': fabDragging }"
+      :style="fabStyle"
+      aria-label="新建笔记"
+      title="新建笔记，可拖动调整位置"
+      @pointerdown="startFabDrag"
+      @pointermove="moveFabDrag"
+      @pointerup="endFabDrag"
+      @pointercancel="endFabDrag"
+      @click="handleFabClick"
+    >
       <Plus :size="28" aria-hidden="true" />
     </router-link>
+
+    <div v-if="showNotebookModal" class="modal-overlay" @click.self="closeNotebookModal">
+      <div ref="notebookDialogRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="new-notebook-title" tabindex="-1">
+        <div class="modal-header">
+          <h2 id="new-notebook-title" class="modal-title">新建笔记本</h2>
+          <button class="btn btn-ghost btn-icon" @click="closeNotebookModal" aria-label="关闭">
+            <X :size="18" aria-hidden="true" />
+          </button>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="sidebar-notebook-name">笔记本名称</label>
+          <input id="sidebar-notebook-name" v-model="newNotebookName" class="form-input" placeholder="输入笔记本名称" @keydown.enter="createNotebook" data-autofocus />
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeNotebookModal">取消</button>
+          <button class="btn btn-primary" @click="createNotebook" :disabled="creatingNotebook || !newNotebookName.trim()">
+            {{ creatingNotebook ? '创建中...' : '创建' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, computed, inject, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   ChevronRight,
@@ -188,22 +242,36 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import { useNotesStore } from '@/stores/notes';
 import { useSettingsStore } from '@/stores/settings';
+import { useModalFocus } from '@/composables/useModalFocus';
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const notesStore = useNotesStore();
 const settingsStore = useSettingsStore();
+const showToast = inject<(msg: string, type: string) => void>('showToast')!;
 
 const sidebarOpen = ref(window.innerWidth > 768);
-const showCategories = ref(true);
 const showTags = ref(true);
 const searchQuery = ref('');
 const mobileSearchOpen = ref(false);
+const expandedNotebooks = ref<Record<string, boolean>>({});
+const showNotebookModal = ref(false);
+const newNotebookName = ref('');
+const creatingNotebook = ref(false);
+
+type FabPosition = { left: number; top: number };
+type FabElementRef = HTMLElement | { $el?: HTMLElement } | null;
+const fabRef = ref<FabElementRef>(null);
+const fabDragging = ref(false);
+const fabPosition = ref<FabPosition | null>(readFabPosition());
+let fabDragStart: (FabPosition & { x: number; y: number }) | null = null;
+let suppressFabClick = false;
 
 const isHome = computed(() => route.name === 'Home');
 const isMobileEditing = computed(() => !!route.query.noteId || !!route.query.newNote);
-const isNotesWorkspace = computed(() => ['Home', 'Category', 'Tag', 'Search', 'Trash'].includes(String(route.name)));
+const isNotesWorkspace = computed(() => ['Home', 'Notebook', 'Category', 'Tag', 'Search', 'Trash'].includes(String(route.name)));
+const { dialogRef: notebookDialogRef } = useModalFocus(showNotebookModal, closeNotebookModal);
 
 // Mobile top bar title — mirrors the page title from HomeView
 const mobileTitle = computed(() => {
@@ -213,11 +281,15 @@ const mobileTitle = computed(() => {
   if (name === 'Settings') return '设置';
   if (name === 'Account') return '账号';
   if (name === 'AdminUsers') return '用户管理';
-  if (name === 'Categories') return '分类管理';
+  if (name === 'Categories') return '笔记本与分类';
   if (name === 'Tags') return '标签管理';
   if (name === 'Category') {
     const cat = notesStore.categories.find((c: any) => c.id === route.params.id);
     return cat?.name || '分类';
+  }
+  if (name === 'Notebook') {
+    const notebook = notesStore.notebooks.find(item => item.id === route.params.id);
+    return notebook?.name || '笔记本';
   }
   if (name === 'Tag') {
     const tag = notesStore.tags.find((t: any) => t.id === route.params.id);
@@ -229,6 +301,44 @@ const mobileTitle = computed(() => {
 function closeSidebar() {
   if (window.innerWidth <= 768) {
     sidebarOpen.value = false;
+  }
+}
+
+function categoriesForNotebook(notebookId: string) {
+  return notesStore.categories.filter(category => category.notebookId === notebookId);
+}
+
+function isNotebookExpanded(notebookId: string) {
+  return expandedNotebooks.value[notebookId] ?? false;
+}
+
+function toggleNotebook(notebookId: string) {
+  expandedNotebooks.value[notebookId] = !isNotebookExpanded(notebookId);
+}
+
+function openNotebookModal() {
+  newNotebookName.value = '';
+  showNotebookModal.value = true;
+}
+
+function closeNotebookModal() {
+  showNotebookModal.value = false;
+  newNotebookName.value = '';
+}
+
+async function createNotebook() {
+  const name = newNotebookName.value.trim();
+  if (!name || creatingNotebook.value) return;
+  creatingNotebook.value = true;
+  try {
+    const notebook = await notesStore.createNotebook(name);
+    expandedNotebooks.value[notebook.id] = true;
+    showToast('笔记本已创建', 'success');
+    closeNotebookModal();
+  } catch (e: any) {
+    showToast(e.response?.data?.error || '创建笔记本失败', 'error');
+  } finally {
+    creatingNotebook.value = false;
   }
 }
 
@@ -252,15 +362,122 @@ function clearSearch() {
 // Handle window resize
 function onResize() {
   sidebarOpen.value = window.innerWidth > 768;
+  if (fabPosition.value) {
+    fabPosition.value = clampFabPosition(fabPosition.value);
+    persistFabPosition(fabPosition.value);
+  }
+}
+
+function readFabPosition(): FabPosition | null {
+  try {
+    const stored = JSON.parse(localStorage.getItem('notesFabPosition') || 'null');
+    if (stored && Number.isFinite(stored.left) && Number.isFinite(stored.top)) {
+      return { left: stored.left, top: stored.top };
+    }
+  } catch {
+    // Ignore malformed or unavailable local storage.
+  }
+  return null;
+}
+
+function persistFabPosition(position: FabPosition) {
+  try {
+    localStorage.setItem('notesFabPosition', JSON.stringify(position));
+  } catch {
+    // Ignore unavailable local storage.
+  }
+}
+
+function clampFabPosition(position: FabPosition): FabPosition {
+  const element = getFabElement();
+  const width = element?.offsetWidth || 56;
+  const height = element?.offsetHeight || 56;
+  return {
+    left: Math.min(Math.max(8, position.left), Math.max(8, window.innerWidth - width - 8)),
+    top: Math.min(Math.max(8, position.top), Math.max(8, window.innerHeight - height - 8)),
+  };
+}
+
+function getFabElement(): HTMLElement | null {
+  const value = fabRef.value;
+  if (value instanceof HTMLElement) return value;
+  return value?.$el instanceof HTMLElement ? value.$el : null;
+}
+
+const fabStyle = computed(() => {
+  if (!fabPosition.value) return undefined;
+  return {
+    left: `${fabPosition.value.left}px`,
+    top: `${fabPosition.value.top}px`,
+    right: 'auto',
+    bottom: 'auto',
+  };
+});
+
+function startFabDrag(event: PointerEvent) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  const element = getFabElement();
+  const rect = element?.getBoundingClientRect();
+  if (!rect) return;
+  fabDragStart = {
+    x: event.clientX,
+    y: event.clientY,
+    left: rect.left,
+    top: rect.top,
+  };
+  fabDragging.value = false;
+  suppressFabClick = false;
+  element?.setPointerCapture(event.pointerId);
+}
+
+function moveFabDrag(event: PointerEvent) {
+  if (!fabDragStart) return;
+  const deltaX = event.clientX - fabDragStart.x;
+  const deltaY = event.clientY - fabDragStart.y;
+  if (!fabDragging.value && Math.hypot(deltaX, deltaY) < 6) return;
+
+  fabDragging.value = true;
+  suppressFabClick = true;
+  event.preventDefault();
+  fabPosition.value = clampFabPosition({
+    left: fabDragStart.left + deltaX,
+    top: fabDragStart.top + deltaY,
+  });
+}
+
+function endFabDrag(event: PointerEvent) {
+  if (!fabDragStart) return;
+  const element = getFabElement();
+  if (element?.hasPointerCapture(event.pointerId)) {
+    element.releasePointerCapture(event.pointerId);
+  }
+  if (fabDragging.value && fabPosition.value) persistFabPosition(fabPosition.value);
+  fabDragStart = null;
+  fabDragging.value = false;
+}
+
+function handleFabClick(event: MouseEvent) {
+  if (!suppressFabClick) return;
+  event.preventDefault();
+  event.stopPropagation();
+  suppressFabClick = false;
 }
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
   await Promise.all([
+    notesStore.fetchNotebooks(),
     notesStore.fetchCategories(),
     notesStore.fetchTags(),
     settingsStore.fetchSettings(),
   ]);
+  for (const notebook of notesStore.notebooks) {
+    expandedNotebooks.value[notebook.id] = notebook.isDefault;
+  }
+  if (fabPosition.value) {
+    fabPosition.value = clampFabPosition(fabPosition.value);
+    persistFabPosition(fabPosition.value);
+  }
 });
 
 onBeforeUnmount(() => {
@@ -326,7 +543,7 @@ watch(
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 10px 14px;
+  padding: 10px 14px 10px 8px;
   border-radius: var(--radius-md);
   color: var(--color-text-sidebar);
   font-size: var(--font-size-sm);
@@ -355,9 +572,51 @@ watch(
   margin-bottom: 4px;
 }
 
+.notebooks-divider {
+  min-height: 28px;
+  margin: var(--spacing-sm) calc(-1 * var(--spacing-sm)) 4px;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-md);
+  border-radius: 0;
+  background: var(--color-bg-hover);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notebooks-divider-actions {
+  display: flex;
+  align-items: center;
+}
+
+.notebooks-divider .nav-manage-icon > span {
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.notebooks-divider .nav-manage-icon {
+  flex-basis: 36px;
+  width: 36px;
+  height: 28px;
+}
+
 .nav-section-heading {
   display: flex;
   align-items: center;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.nav-section-heading:hover {
+  background: var(--color-bg-hover);
+}
+
+.nav-section-heading.active {
+  background: var(--color-accent-light);
+  color: var(--color-text-sidebar-active);
 }
 
 .nav-section-header {
@@ -365,7 +624,7 @@ watch(
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 10px 14px;
+  padding: 10px 14px 10px 8px;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -378,8 +637,38 @@ watch(
 }
 
 .nav-section-header:hover {
-  background: var(--color-bg-hover);
+  background: transparent;
   color: var(--color-text-primary);
+}
+
+.nav-section-heading.active .notebook-link {
+  background: transparent;
+  color: var(--color-text-sidebar-active);
+  font-weight: 500;
+}
+
+.notebook-toggle {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-sidebar);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.notebook-toggle:hover {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+.notebook-toggle .nav-arrow {
+  margin-left: 0;
 }
 
 .nav-arrow.expanded {
@@ -397,10 +686,17 @@ watch(
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 .nav-manage-icon:hover {
   opacity: 1;
+  background: transparent;
 }
 
 .nav-arrow {
@@ -416,7 +712,7 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  padding: 8px 0 8px 16px;
   border-radius: var(--radius-sm);
   color: var(--color-text-sidebar);
   font-size: var(--font-size-xs);
@@ -434,6 +730,10 @@ watch(
   background: var(--color-accent-light);
   color: var(--color-text-sidebar-active);
   font-weight: 500;
+}
+
+.tags-section .nav-count {
+  margin-right: 10px;
 }
 
 .nav-count {
@@ -573,6 +873,23 @@ watch(
   .nav-section-header,
   .nav-sub-item {
     min-height: 44px;
+  }
+
+  .notebooks-divider {
+    min-height: 44px;
+    padding-right: var(--spacing-sm);
+  }
+
+  .notebook-toggle {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .notebooks-divider .nav-manage-icon {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
   }
 
   .nav-manage-icon {

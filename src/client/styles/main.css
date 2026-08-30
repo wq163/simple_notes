@@ -309,6 +309,8 @@ a {
   justify-content: center;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   z-index: 100;
+  user-select: none;
+  touch-action: none;
 }
 
 .fab:hover {
@@ -318,6 +320,12 @@ a {
 
 .fab:active {
   transform: scale(0.95);
+}
+
+.fab.fab-dragging {
+  cursor: grabbing;
+  transform: none;
+  transition: none;
 }
 
 /* ===========================
