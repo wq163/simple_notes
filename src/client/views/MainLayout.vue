@@ -543,12 +543,12 @@ watch(
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 10px 14px 10px 8px;
-  border-radius: var(--radius-md);
+  padding: 10px 14px 10px 16px;
+  border-radius: 0;
   color: var(--color-text-sidebar);
   font-size: var(--font-size-sm);
   transition: all var(--transition-fast);
-  margin-bottom: 2px;
+  margin: 0 calc(-1 * var(--spacing-sm)) 2px;
   text-decoration: none;
 }
 
@@ -606,7 +606,9 @@ watch(
 .nav-section-heading {
   display: flex;
   align-items: center;
-  border-radius: var(--radius-md);
+  margin: 0 calc(-1 * var(--spacing-sm));
+  padding-right: var(--spacing-sm);
+  border-radius: 0;
   transition: background var(--transition-fast);
 }
 
@@ -624,9 +626,9 @@ watch(
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 10px 14px 10px 8px;
+  padding: 10px 14px 10px 16px;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   background: transparent;
   color: var(--color-text-sidebar);
   font-size: var(--font-size-sm);
@@ -712,13 +714,13 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0 8px 16px;
-  border-radius: var(--radius-sm);
+  margin: 0 calc(-1 * var(--spacing-sm)) 1px calc(-1 * var(--spacing-lg) - var(--spacing-sm));
+  padding: 8px var(--spacing-sm) 8px 48px;
+  border-radius: 0;
   color: var(--color-text-sidebar);
   font-size: var(--font-size-xs);
   transition: all var(--transition-fast);
   text-decoration: none;
-  margin-bottom: 1px;
 }
 
 .nav-sub-item:hover:not(.active) {
@@ -877,7 +879,27 @@ watch(
 
   .notebooks-divider {
     min-height: 44px;
+    margin: 2px calc(-1 * var(--spacing-sm));
     padding-right: var(--spacing-sm);
+    position: relative;
+    background: transparent;
+  }
+
+  .notebooks-divider::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 28px;
+    transform: translateY(-50%);
+    background: var(--color-bg-hover);
+  }
+
+  .notebooks-divider > span,
+  .notebooks-divider-actions {
+    position: relative;
+    z-index: 1;
   }
 
   .notebook-toggle {
