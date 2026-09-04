@@ -150,7 +150,7 @@
           <Search :size="20" aria-hidden="true" />
         </button>
 
-        <router-link :to="{ path: route.path, query: { newNote: 'true' } }" class="btn btn-primary btn-sm desktop-only">
+        <router-link :to="newNoteTarget" class="btn btn-primary btn-sm desktop-only">
           <Plus :size="17" aria-hidden="true" />
           新建笔记
         </router-link>
@@ -181,23 +181,20 @@
     </main>
 
     <!-- FAB for mobile -->
-    <router-link
+    <button
       ref="fabRef"
+      type="button"
       v-show="!isMobileEditing"
-      :to="{ path: route.path, query: { newNote: 'true' } }"
       class="fab mobile-only"
       :class="{ 'fab-dragging': fabDragging }"
       :style="fabStyle"
       aria-label="新建笔记"
       title="新建笔记，可拖动调整位置"
       @pointerdown="startFabDrag"
-      @pointermove="moveFabDrag"
-      @pointerup="endFabDrag"
-      @pointercancel="endFabDrag"
       @click="handleFabClick"
     >
       <Plus :size="28" aria-hidden="true" />
-    </router-link>
+    </button>
 
     <div v-if="showNotebookModal" class="modal-overlay" @click.self="closeNotebookModal">
       <div ref="notebookDialogRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="new-notebook-title" tabindex="-1">
@@ -261,16 +258,20 @@ const newNotebookName = ref('');
 const creatingNotebook = ref(false);
 
 type FabPosition = { left: number; top: number };
-type FabElementRef = HTMLElement | { $el?: HTMLElement } | null;
-const fabRef = ref<FabElementRef>(null);
+type FabDragStart = FabPosition & { x: number; y: number; pointerId: number };
+const fabRef = ref<HTMLButtonElement | null>(null);
 const fabDragging = ref(false);
 const fabPosition = ref<FabPosition | null>(readFabPosition());
-let fabDragStart: (FabPosition & { x: number; y: number }) | null = null;
+let fabDragStart: FabDragStart | null = null;
 let suppressFabClick = false;
 
 const isHome = computed(() => route.name === 'Home');
 const isMobileEditing = computed(() => !!route.query.noteId || !!route.query.newNote);
 const isNotesWorkspace = computed(() => ['Home', 'Notebook', 'Category', 'Tag', 'Search', 'Trash'].includes(String(route.name)));
+const newNoteTarget = computed(() => ({
+  path: route.path,
+  query: { ...route.query, noteId: undefined, newNote: 'true' },
+}));
 const { dialogRef: notebookDialogRef } = useModalFocus(showNotebookModal, closeNotebookModal);
 
 // Mobile top bar title — mirrors the page title from HomeView
@@ -392,16 +393,28 @@ function clampFabPosition(position: FabPosition): FabPosition {
   const element = getFabElement();
   const width = element?.offsetWidth || 56;
   const height = element?.offsetHeight || 56;
+  const viewport = window.visualViewport;
+  const viewportLeft = viewport?.offsetLeft || 0;
+  const viewportTop = viewport?.offsetTop || 0;
+  const viewportWidth = viewport?.width || window.innerWidth;
+  const viewportHeight = viewport?.height || window.innerHeight;
+  const safeAreaBottom = element
+    ? parseFloat(getComputedStyle(element).getPropertyValue('--fab-safe-area-bottom')) || 0
+    : 0;
   return {
-    left: Math.min(Math.max(8, position.left), Math.max(8, window.innerWidth - width - 8)),
-    top: Math.min(Math.max(8, position.top), Math.max(8, window.innerHeight - height - 8)),
+    left: Math.min(
+      Math.max(viewportLeft + 8, position.left),
+      Math.max(viewportLeft + 8, viewportLeft + viewportWidth - width - 8),
+    ),
+    top: Math.min(
+      Math.max(viewportTop + 8, position.top),
+      Math.max(viewportTop + 8, viewportTop + viewportHeight - height - safeAreaBottom - 8),
+    ),
   };
 }
 
-function getFabElement(): HTMLElement | null {
-  const value = fabRef.value;
-  if (value instanceof HTMLElement) return value;
-  return value?.$el instanceof HTMLElement ? value.$el : null;
+function getFabElement(): HTMLButtonElement | null {
+  return fabRef.value;
 }
 
 const fabStyle = computed(() => {
@@ -424,17 +437,25 @@ function startFabDrag(event: PointerEvent) {
     y: event.clientY,
     left: rect.left,
     top: rect.top,
+    pointerId: event.pointerId,
   };
   fabDragging.value = false;
   suppressFabClick = false;
-  element?.setPointerCapture(event.pointerId);
+  window.addEventListener('pointermove', moveFabDrag, { passive: false });
+  window.addEventListener('pointerup', endFabDrag);
+  window.addEventListener('pointercancel', endFabDrag);
+  try {
+    element?.setPointerCapture(event.pointerId);
+  } catch {
+    // Window-level listeners still keep the drag active if capture is unavailable.
+  }
 }
 
 function moveFabDrag(event: PointerEvent) {
-  if (!fabDragStart) return;
+  if (!fabDragStart || event.pointerId !== fabDragStart.pointerId) return;
   const deltaX = event.clientX - fabDragStart.x;
   const deltaY = event.clientY - fabDragStart.y;
-  if (!fabDragging.value && Math.hypot(deltaX, deltaY) < 6) return;
+  if (!fabDragging.value && Math.hypot(deltaX, deltaY) < 3) return;
 
   fabDragging.value = true;
   suppressFabClick = true;
@@ -446,7 +467,7 @@ function moveFabDrag(event: PointerEvent) {
 }
 
 function endFabDrag(event: PointerEvent) {
-  if (!fabDragStart) return;
+  if (!fabDragStart || event.pointerId !== fabDragStart.pointerId) return;
   const element = getFabElement();
   if (element?.hasPointerCapture(event.pointerId)) {
     element.releasePointerCapture(event.pointerId);
@@ -454,17 +475,28 @@ function endFabDrag(event: PointerEvent) {
   if (fabDragging.value && fabPosition.value) persistFabPosition(fabPosition.value);
   fabDragStart = null;
   fabDragging.value = false;
+  removeFabDragListeners();
 }
 
 function handleFabClick(event: MouseEvent) {
-  if (!suppressFabClick) return;
-  event.preventDefault();
-  event.stopPropagation();
-  suppressFabClick = false;
+  if (suppressFabClick) {
+    event.preventDefault();
+    event.stopPropagation();
+    suppressFabClick = false;
+    return;
+  }
+  void router.push(newNoteTarget.value);
+}
+
+function removeFabDragListeners() {
+  window.removeEventListener('pointermove', moveFabDrag);
+  window.removeEventListener('pointerup', endFabDrag);
+  window.removeEventListener('pointercancel', endFabDrag);
 }
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
+  window.visualViewport?.addEventListener('resize', onResize);
   await Promise.all([
     notesStore.fetchNotebooks(),
     notesStore.fetchCategories(),
@@ -482,6 +514,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize);
+  window.visualViewport?.removeEventListener('resize', onResize);
+  removeFabDragListeners();
 });
 
 watch(

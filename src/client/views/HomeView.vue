@@ -131,7 +131,7 @@
       <p class="empty-state-text">
         {{ isTrash ? '回收站是空的' : isSearch ? '没有找到匹配的笔记' : '还没有笔记' }}
       </p>
-      <router-link v-if="!isTrash && !isSearch" to="/note/new" class="btn btn-primary">
+      <router-link v-if="!isTrash && !isSearch" :to="newNoteTarget" class="btn btn-primary">
         创建第一条笔记
       </router-link>
     </div>
@@ -149,7 +149,7 @@
       <NoteEditorView 
         v-if="route.query.noteId || route.query.newNote"
         ref="editorRef"
-        :key="(route.query.noteId as string) || 'new'"
+        :key="editorKey"
       />
       <div v-else class="empty-editor-state">
         <NotebookPen class="empty-icon" :size="48" aria-hidden="true" />
@@ -177,6 +177,12 @@ const isSearch = computed(() => route.name === 'Search');
 const isNotebook = computed(() => route.name === 'Notebook');
 const selectedNoteId = computed(() => route.query.noteId as string | undefined);
 const isEditorOpen = computed(() => !!route.query.noteId || !!route.query.newNote);
+const newNoteTarget = computed(() => ({
+  path: route.path,
+  query: { ...route.query, noteId: undefined, newNote: 'true' },
+}));
+const editorKey = computed(() => selectedNoteId.value
+  || `new-${String(route.name)}-${String(route.params.id || '')}`);
 const listContextKey = computed(() => JSON.stringify([
   route.name,
   route.params.id || '',

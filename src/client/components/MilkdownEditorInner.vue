@@ -4,14 +4,11 @@ import { Crepe, CrepeFeature } from '@milkdown/crepe';
 import { commandsCtx, editorViewCtx } from '@milkdown/core';
 import { callCommand, insert, $prose } from '@milkdown/utils';
 import { Plugin, PluginKey } from '@milkdown/prose/state';
+import { wrapInList } from '@milkdown/prose/schema-list';
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
-  wrapInBulletListCommand,
-  wrapInOrderedListCommand,
   wrapInHeadingCommand,
-  wrapInBlockTypeCommand,
-  listItemSchema,
   bulletListSchema,
   orderedListSchema,
   liftListItemCommand
@@ -57,7 +54,7 @@ const { get } = useEditor((root) => {
       [CrepeFeature.CodeMirror]: false,
       [CrepeFeature.Table]: false,
       [CrepeFeature.Latex]: false,
-      [CrepeFeature.Toolbar]: true,
+      [CrepeFeature.Toolbar]: false,
     },
     featureConfigs: {
       [CrepeFeature.Placeholder]: {
@@ -207,19 +204,27 @@ function toggleList(type: 'bullet' | 'ordered' | 'task') {
           commands.call(liftListItemCommand.key);
         }
         
-        // Now wrap it in the new list type
-        if (type === 'bullet') {
-          const bulletList = bulletListSchema.type(ctx);
-          commands.call(wrapInBlockTypeCommand.key, { nodeType: bulletList });
-        } else if (type === 'ordered') {
-          const orderedList = orderedListSchema.type(ctx);
-          commands.call(wrapInBlockTypeCommand.key, { nodeType: orderedList });
-        } else if (type === 'task') {
-          const listItem = listItemSchema.type(ctx);
-          commands.call(wrapInBlockTypeCommand.key, {
-            nodeType: listItem,
-            attrs: { checked: false }
+        const listType = type === 'ordered'
+          ? orderedListSchema.type(ctx)
+          : bulletListSchema.type(ctx);
+        const wrapped = wrapInList(listType)(view.state, view.dispatch);
+
+        if (wrapped && type === 'task') {
+          const nextState = view.state;
+          const transaction = nextState.tr;
+          const { from, to } = nextState.selection;
+
+          nextState.doc.descendants((node, pos) => {
+            const overlapsSelection = pos < to && pos + node.nodeSize > from;
+            if (node.type.name === 'list_item' && overlapsSelection) {
+              transaction.setNodeMarkup(pos, undefined, {
+                ...node.attrs,
+                checked: false,
+              });
+            }
           });
+
+          if (transaction.docChanged) view.dispatch(transaction);
         }
       }
     });
@@ -298,11 +303,8 @@ defineExpose({ getMarkdown });
   <div class="custom-editor-wrapper">
     <!-- Static Toolbar -->
     <div class="editor-toolbar" role="toolbar" aria-label="编辑工具栏">
-      <button type="button" class="toolbar-btn" @mousedown.prevent="execCommand(toggleStrongCommand.key)" @keydown.enter.space.prevent="execCommand(toggleStrongCommand.key)" title="加粗 (Ctrl+B)" aria-label="加粗">
+      <button type="button" class="toolbar-btn toolbar-bold" @mousedown.prevent="execCommand(toggleStrongCommand.key)" @keydown.enter.space.prevent="execCommand(toggleStrongCommand.key)" title="加粗 (Ctrl+B)" aria-label="加粗">
         <Bold :size="18" aria-hidden="true" />
-      </button>
-      <button type="button" class="toolbar-btn" @mousedown.prevent="execCommand(toggleStrikethroughCommand.key)" @keydown.enter.space.prevent="execCommand(toggleStrikethroughCommand.key)" title="删除线" aria-label="删除线">
-        <Strikethrough :size="18" aria-hidden="true" />
       </button>
       <div class="toolbar-divider"></div>
       <button type="button" class="toolbar-btn" @mousedown.prevent="toggleList('bullet')" @keydown.enter.space.prevent="toggleList('bullet')" title="无序列表" aria-label="无序列表">
@@ -321,19 +323,24 @@ defineExpose({ getMarkdown });
       <button type="button" class="toolbar-btn mobile-more-btn" @mousedown.prevent="showFolded = !showFolded" @keydown.enter.space.prevent="showFolded = !showFolded" title="更多选项" aria-label="更多选项" :aria-expanded="showFolded">
         <Ellipsis :size="20" aria-hidden="true" />
       </button>
-      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(toggleEmphasisCommand.key)" @keydown.enter.space.prevent="execCommand(toggleEmphasisCommand.key)" title="斜体 (Ctrl+I)" aria-label="斜体">
-        <Italic :size="18" aria-hidden="true" />
-      </button>
-      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 2)" @keydown.enter.space.prevent="execCommand(wrapInHeadingCommand.key, 2)" title="标题 (H2)" aria-label="二级标题">
-        <Heading2 :size="18" aria-hidden="true" />
-      </button>
-      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 3)" @keydown.enter.space.prevent="execCommand(wrapInHeadingCommand.key, 3)" title="标题 (H3)" aria-label="三级标题">
-        <Heading3 :size="18" aria-hidden="true" />
-      </button>
-      <div class="toolbar-divider foldable" :class="{ 'is-open': showFolded }"></div>
-      <button type="button" class="toolbar-btn foldable" :class="{ 'is-open': showFolded }" @mousedown.prevent="triggerFilePick()" @keydown.enter.space.prevent="triggerFilePick()" title="上传附件" aria-label="上传附件">
-        <Paperclip :size="18" aria-hidden="true" />
-      </button>
+      <div class="toolbar-more" :class="{ 'is-open': showFolded }">
+        <button type="button" class="toolbar-btn toolbar-strikethrough" @mousedown.prevent="execCommand(toggleStrikethroughCommand.key)" @keydown.enter.space.prevent="execCommand(toggleStrikethroughCommand.key)" title="删除线" aria-label="删除线">
+          <Strikethrough :size="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="toolbar-btn" @mousedown.prevent="execCommand(toggleEmphasisCommand.key)" @keydown.enter.space.prevent="execCommand(toggleEmphasisCommand.key)" title="斜体 (Ctrl+I)" aria-label="斜体">
+          <Italic :size="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="toolbar-btn" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 2)" @keydown.enter.space.prevent="execCommand(wrapInHeadingCommand.key, 2)" title="标题 (H2)" aria-label="二级标题">
+          <Heading2 :size="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="toolbar-btn" @mousedown.prevent="execCommand(wrapInHeadingCommand.key, 3)" @keydown.enter.space.prevent="execCommand(wrapInHeadingCommand.key, 3)" title="标题 (H3)" aria-label="三级标题">
+          <Heading3 :size="18" aria-hidden="true" />
+        </button>
+        <div class="toolbar-divider"></div>
+        <button type="button" class="toolbar-btn" @mousedown.prevent="triggerFilePick()" @keydown.enter.space.prevent="triggerFilePick()" title="上传附件" aria-label="上传附件">
+          <Paperclip :size="18" aria-hidden="true" />
+        </button>
+      </div>
     </div>
 
     <!-- Hidden file inputs -->
@@ -435,6 +442,18 @@ defineExpose({ getMarkdown });
   display: none;
 }
 
+.toolbar-more {
+  display: contents;
+}
+
+.toolbar-bold {
+  order: -2;
+}
+
+.toolbar-strikethrough {
+  order: -1;
+}
+
 @media (max-width: 768px) {
   .custom-editor-wrapper {
     border: none;
@@ -455,19 +474,31 @@ defineExpose({ getMarkdown });
     width: 44px;
     height: 44px;
   }
+
+  .toolbar-bold {
+    order: 0;
+  }
+
   .mobile-more-btn {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
   }
-  .foldable {
-    display: none !important;
+
+  .editor-toolbar > .toolbar-divider {
+    display: none;
   }
-  .foldable.is-open {
-    display: inline-block !important;
+
+  .toolbar-more {
+    display: none;
   }
-  .toolbar-divider.foldable.is-open {
-    display: block !important;
+
+  .toolbar-more.is-open {
+    display: flex;
+    order: -1;
+    flex: 0 0 100%;
+    align-items: center;
+    gap: 8px;
   }
 }
 

@@ -292,6 +292,7 @@ a {
    Floating Action Button
    =========================== */
 .fab {
+  --fab-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   position: fixed;
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   right: 24px;
