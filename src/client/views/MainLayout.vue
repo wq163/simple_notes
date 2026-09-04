@@ -265,6 +265,14 @@ const fabPosition = ref<FabPosition | null>(readFabPosition());
 let fabDragStart: FabDragStart | null = null;
 let suppressFabClick = false;
 
+function setNativeFabDragging(isDragging: boolean) {
+  try {
+    (window as any).Android?.setFabDragging(isDragging);
+  } catch {
+    // The Android bridge is unavailable in regular browsers.
+  }
+}
+
 const isHome = computed(() => route.name === 'Home');
 const isMobileEditing = computed(() => !!route.query.noteId || !!route.query.newNote);
 const isNotesWorkspace = computed(() => ['Home', 'Notebook', 'Category', 'Tag', 'Search', 'Trash'].includes(String(route.name)));
@@ -441,6 +449,7 @@ function startFabDrag(event: PointerEvent) {
   };
   fabDragging.value = false;
   suppressFabClick = false;
+  setNativeFabDragging(true);
   window.addEventListener('pointermove', moveFabDrag, { passive: false });
   window.addEventListener('pointerup', endFabDrag);
   window.addEventListener('pointercancel', endFabDrag);
@@ -473,6 +482,7 @@ function endFabDrag(event: PointerEvent) {
     element.releasePointerCapture(event.pointerId);
   }
   if (fabDragging.value && fabPosition.value) persistFabPosition(fabPosition.value);
+  setNativeFabDragging(false);
   fabDragStart = null;
   fabDragging.value = false;
   removeFabDragListeners();
@@ -515,6 +525,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize);
   window.visualViewport?.removeEventListener('resize', onResize);
+  setNativeFabDragging(false);
   removeFabDragListeners();
 });
 

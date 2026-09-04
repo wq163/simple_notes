@@ -30,6 +30,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var errorLayout: LinearLayout
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    @Volatile private var webContentAtTop = true
+    @Volatile private var fabDragging = false
     
     // File chooser launcher
     private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -95,7 +97,18 @@ class MainActivity : AppCompatActivity() {
         @android.webkit.JavascriptInterface
         fun setScrollPosition(isAtTop: Boolean) {
             runOnUiThread {
-                swipeRefreshLayout.isEnabled = isAtTop
+                webContentAtTop = isAtTop
+                if (!fabDragging) {
+                    swipeRefreshLayout.isEnabled = isAtTop
+                }
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun setFabDragging(isDragging: Boolean) {
+            fabDragging = isDragging
+            runOnUiThread {
+                swipeRefreshLayout.isEnabled = !fabDragging && webContentAtTop
             }
         }
     }
