@@ -33,7 +33,7 @@ let config: AppConfig | null = null;
 const BUILTIN_DEFAULTS: AppConfig = {
   server: { port: 3000, host: '0.0.0.0', baseUrl: '/' },
   data: { dir: './data' },
-  jwt: { secret: 'simple-notes-jwt-secret-change-me', expiresIn: '24h', rememberMeExpiresIn: '30d' },
+  jwt: { secret: 'simple-notes-jwt-secret-change-me', expiresIn: '24h', rememberMeExpiresIn: '180d' },
   upload: { maxFileSize: 20971520 },
   admin: { defaultUsername: 'jenwang', defaultPassword: 'jenwang' },
 };

@@ -13,7 +13,7 @@
       </div>
 
       <nav class="sidebar-nav">
-        <router-link to="/" class="nav-item" :class="{ active: isHome }" @click="closeSidebar">
+        <router-link to="/" class="nav-item" :class="{ active: isHome }" @click="selectHome">
           <Home class="nav-icon" :size="18" aria-hidden="true" />
           <span class="nav-text">首页</span>
         </router-link>
@@ -45,14 +45,14 @@
             <button
               type="button"
               class="notebook-toggle"
-              @click="toggleNotebook(notebook.id)"
-              :aria-expanded="isNotebookExpanded(notebook.id)"
-              :aria-label="`${isNotebookExpanded(notebook.id) ? '收起' : '展开'}${notebook.name}分类`"
+              @click="toggleNotebook(notebook)"
+              :aria-expanded="isNotebookExpanded(notebook)"
+              :aria-label="`${isNotebookExpanded(notebook) ? '收起' : '展开'}${notebook.name}分类`"
             >
-              <ChevronRight class="nav-arrow" :class="{ expanded: isNotebookExpanded(notebook.id) }" :size="15" aria-hidden="true" />
+              <ChevronRight class="nav-arrow" :class="{ expanded: isNotebookExpanded(notebook) }" :size="15" aria-hidden="true" />
             </button>
           </div>
-          <div v-if="isNotebookExpanded(notebook.id)" class="nav-sub-list">
+          <div v-if="isNotebookExpanded(notebook)" class="nav-sub-list">
             <router-link
               v-for="cat in categoriesForNotebook(notebook.id)"
               :key="cat.id"
@@ -146,7 +146,7 @@
         </div>
 
         <!-- Mobile: search icon -->
-        <button class="btn btn-ghost btn-icon topbar-search-btn mobile-only" @click="mobileSearchOpen = !mobileSearchOpen" aria-label="搜索笔记" :aria-expanded="mobileSearchOpen">
+        <button class="btn btn-ghost btn-icon topbar-search-btn mobile-only" @click="toggleMobileSearch()" aria-label="搜索笔记" :aria-expanded="mobileSearchOpen">
           <Search :size="20" aria-hidden="true" />
         </button>
 
@@ -166,6 +166,8 @@
             placeholder="搜索笔记..."
             aria-label="搜索笔记"
             autofocus
+            @focus="anchorSearchFab"
+            @pointerdown="anchorSearchFab"
             @keydown.enter="submitMobileSearch"
           />
           <button v-if="searchQuery" type="button" class="search-clear" @click="clearSearch" aria-label="清除搜索">
@@ -176,7 +178,7 @@
 
       <!-- Page Content -->
       <div class="content-area" :class="{ 'editing-mode': isMobileEditing, 'workspace-content': isNotesWorkspace }">
-        <router-view />
+        <router-view v-if="!restoringSidebarSelection" />
       </div>
     </main>
 
@@ -237,7 +239,7 @@ import {
   X,
 } from '@lucide/vue';
 import { useAuthStore } from '@/stores/auth';
-import { useNotesStore } from '@/stores/notes';
+import { useNotesStore, type Notebook } from '@/stores/notes';
 import { useSettingsStore } from '@/stores/settings';
 import { useModalFocus } from '@/composables/useModalFocus';
 
@@ -252,16 +254,30 @@ const sidebarOpen = ref(window.innerWidth > 768);
 const showTags = ref(true);
 const searchQuery = ref('');
 const mobileSearchOpen = ref(false);
-const expandedNotebooks = ref<Record<string, boolean>>({});
 const showNotebookModal = ref(false);
 const newNotebookName = ref('');
 const creatingNotebook = ref(false);
+
+type SidebarSelection = { name: 'Notebook' | 'Category'; id: string };
+type SidebarState = { expandedNotebooks: Record<string, boolean>; selection: SidebarSelection | null };
+const sidebarStorageKey = authStore.user ? `notesSidebar:${authStore.user.id}` : null;
+const sidebarState = ref<SidebarState>(readSidebarState());
+const restoringSidebarSelection = ref(
+  route.name === 'Home' && !Object.keys(route.query).length && !route.hash && !!sidebarState.value.selection,
+);
 
 type FabPosition = { left: number; top: number };
 type FabDragStart = FabPosition & { x: number; y: number; pointerId: number };
 const fabRef = ref<HTMLButtonElement | null>(null);
 const fabDragging = ref(false);
-const fabPosition = ref<FabPosition | null>(readFabPosition());
+let savedFabPosition = readFabPosition();
+const fabPosition = ref(savedFabPosition);
+const searchFabAnchor = ref<{
+  position: FabPosition;
+  width: number;
+  height: number;
+  visualHeight: number;
+} | null>(null);
 let fabDragStart: FabDragStart | null = null;
 let suppressFabClick = false;
 
@@ -313,16 +329,54 @@ function closeSidebar() {
   }
 }
 
+function selectHome() {
+  closeSidebar();
+  if (restoringSidebarSelection.value) {
+    restoringSidebarSelection.value = false;
+    sidebarState.value.selection = null;
+    persistSidebarState();
+  }
+}
+
+function readSidebarState(): SidebarState {
+  try {
+    if (sidebarStorageKey) {
+      const stored = JSON.parse(localStorage.getItem(sidebarStorageKey) || 'null');
+      if (stored) {
+        const { expandedNotebooks, selection } = stored;
+        return {
+          expandedNotebooks: expandedNotebooks && typeof expandedNotebooks === 'object' ? expandedNotebooks : {},
+          selection: (selection?.name === 'Notebook' || selection?.name === 'Category') &&
+            typeof selection.id === 'string' ? selection : null,
+        };
+      }
+    }
+  } catch {
+    // Ignore malformed or unavailable local storage.
+  }
+  return { expandedNotebooks: {}, selection: null };
+}
+
+function persistSidebarState() {
+  try {
+    if (sidebarStorageKey) localStorage.setItem(sidebarStorageKey, JSON.stringify(sidebarState.value));
+  } catch {
+    // Keep the sidebar usable when local storage is unavailable.
+  }
+}
+
 function categoriesForNotebook(notebookId: string) {
   return notesStore.categories.filter(category => category.notebookId === notebookId);
 }
 
-function isNotebookExpanded(notebookId: string) {
-  return expandedNotebooks.value[notebookId] ?? false;
+function isNotebookExpanded(notebook: Notebook) {
+  const expanded = sidebarState.value.expandedNotebooks[notebook.id];
+  return typeof expanded === 'boolean' ? expanded : notebook.isDefault;
 }
 
-function toggleNotebook(notebookId: string) {
-  expandedNotebooks.value[notebookId] = !isNotebookExpanded(notebookId);
+function toggleNotebook(notebook: Notebook) {
+  sidebarState.value.expandedNotebooks[notebook.id] = !isNotebookExpanded(notebook);
+  persistSidebarState();
 }
 
 function openNotebookModal() {
@@ -341,7 +395,8 @@ async function createNotebook() {
   creatingNotebook.value = true;
   try {
     const notebook = await notesStore.createNotebook(name);
-    expandedNotebooks.value[notebook.id] = true;
+    sidebarState.value.expandedNotebooks[notebook.id] = true;
+    persistSidebarState();
     showToast('笔记本已创建', 'success');
     closeNotebookModal();
   } catch (e: any) {
@@ -360,7 +415,24 @@ function doSearch() {
 
 async function submitMobileSearch() {
   await doSearch();
-  mobileSearchOpen.value = false;
+  toggleMobileSearch(false);
+}
+
+function toggleMobileSearch(open = !mobileSearchOpen.value) {
+  if (open) anchorSearchFab();
+  mobileSearchOpen.value = open;
+  if (!open) updateFabPosition();
+}
+
+function anchorSearchFab() {
+  const element = getFabElement();
+  if (searchFabAnchor.value || !element?.offsetWidth) return;
+  searchFabAnchor.value = {
+    position: { left: element.offsetLeft, top: element.offsetTop },
+    width: window.innerWidth,
+    height: window.innerHeight,
+    visualHeight: window.visualViewport?.height ?? window.innerHeight,
+  };
 }
 
 function clearSearch() {
@@ -371,10 +443,17 @@ function clearSearch() {
 // Handle window resize
 function onResize() {
   sidebarOpen.value = window.innerWidth > 768;
-  if (fabPosition.value) {
-    fabPosition.value = clampFabPosition(fabPosition.value);
-    persistFabPosition(fabPosition.value);
+  updateFabPosition();
+}
+
+function updateFabPosition() {
+  const anchor = searchFabAnchor.value;
+  if (anchor && anchor.width === window.innerWidth) {
+    const visualHeight = window.visualViewport?.height ?? window.innerHeight;
+    if (mobileSearchOpen.value || window.innerHeight < anchor.height || visualHeight < anchor.visualHeight) return;
   }
+  searchFabAnchor.value = null;
+  if (!fabDragging.value) fabPosition.value = savedFabPosition && clampFabPosition(savedFabPosition);
 }
 
 function readFabPosition(): FabPosition | null {
@@ -426,10 +505,11 @@ function getFabElement(): HTMLButtonElement | null {
 }
 
 const fabStyle = computed(() => {
-  if (!fabPosition.value) return undefined;
+  const position = fabPosition.value ?? searchFabAnchor.value?.position;
+  if (!position) return undefined;
   return {
-    left: `${fabPosition.value.left}px`,
-    top: `${fabPosition.value.top}px`,
+    left: `${position.left}px`,
+    top: `${position.top}px`,
     right: 'auto',
     bottom: 'auto',
   };
@@ -481,7 +561,10 @@ function endFabDrag(event: PointerEvent) {
   if (element?.hasPointerCapture(event.pointerId)) {
     element.releasePointerCapture(event.pointerId);
   }
-  if (fabDragging.value && fabPosition.value) persistFabPosition(fabPosition.value);
+  if (fabDragging.value && fabPosition.value) {
+    savedFabPosition = fabPosition.value;
+    persistFabPosition(savedFabPosition);
+  }
   setNativeFabDragging(false);
   fabDragStart = null;
   fabDragging.value = false;
@@ -507,27 +590,58 @@ function removeFabDragListeners() {
 onMounted(async () => {
   window.addEventListener('resize', onResize);
   window.visualViewport?.addEventListener('resize', onResize);
+  updateFabPosition();
+  const notebooks = notesStore.fetchNotebooks();
+  const categories = notesStore.fetchCategories();
+  const selection = sidebarState.value.selection;
+  if (restoringSidebarSelection.value && selection) {
+    void restoreSidebarSelection(selection, selection.name === 'Notebook' ? notebooks : categories);
+  }
   await Promise.all([
-    notesStore.fetchNotebooks(),
-    notesStore.fetchCategories(),
+    notebooks,
+    categories,
     notesStore.fetchTags(),
     settingsStore.fetchSettings(),
   ]);
-  for (const notebook of notesStore.notebooks) {
-    expandedNotebooks.value[notebook.id] = notebook.isDefault;
-  }
-  if (fabPosition.value) {
-    fabPosition.value = clampFabPosition(fabPosition.value);
-    persistFabPosition(fabPosition.value);
-  }
 });
 
+async function restoreSidebarSelection(selection: SidebarSelection, load: Promise<void>) {
+  try {
+    const loaded = await load.then(() => true, () => false);
+    if (!loaded || !restoringSidebarSelection.value) return;
+    const items = selection.name === 'Notebook' ? notesStore.notebooks : notesStore.categories;
+    if (items.some(item => item.id === selection.id)) {
+      await router.replace({ name: selection.name, params: { id: selection.id } });
+    } else {
+      sidebarState.value.selection = null;
+      persistSidebarState();
+    }
+  } finally {
+    restoringSidebarSelection.value = false;
+  }
+}
+
 onBeforeUnmount(() => {
+  restoringSidebarSelection.value = false;
   window.removeEventListener('resize', onResize);
   window.visualViewport?.removeEventListener('resize', onResize);
   setNativeFabDragging(false);
   removeFabDragListeners();
 });
+
+watch(
+  () => route.fullPath,
+  (_path, previousPath) => {
+    if (restoringSidebarSelection.value && previousPath === undefined) return;
+    restoringSidebarSelection.value = false;
+    if (route.name === 'Login') return;
+    const id = route.params.id;
+    sidebarState.value.selection = (route.name === 'Notebook' || route.name === 'Category') &&
+      typeof id === 'string' ? { name: route.name, id } : null;
+    persistSidebarState();
+  },
+  { immediate: true },
+);
 
 watch(
   () => [route.name, route.query.q],

@@ -121,13 +121,15 @@ docker run -d \
   "jwt": {
     "secret": "...",       // JWT 密钥（生产环境请修改）
     "expiresIn": "24h",    // Token 有效期
-    "rememberMeExpiresIn": "30d"  // 记住我有效期
+    "rememberMeExpiresIn": "180d"  // 勾选“记住我”后的闲置期限
   },
   "upload": {
     "maxFileSize": 20971520  // 图片大小限制（字节），默认 20MB
   }
 }
 ```
+
+勾选“记住我”后，每次通过鉴权的 API 请求都会续期，默认连续闲置 180 天后需要重新登录。普通登录默认从签发起有效 24 小时。已有令牌按原到期时间处理，升级后重新登录并勾选“记住我”即可启用自动续期。如在用户配置中覆盖了 `jwt.rememberMeExpiresIn`，续期以该配置为准。
 
 也可通过环境变量覆盖：
 
