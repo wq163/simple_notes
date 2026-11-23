@@ -1,10 +1,13 @@
 <template>
-  <div class="main-layout">
-    <!-- Mobile overlay -->
-    <div v-if="sidebarOpen" class="sidebar-overlay mobile-only" @click="sidebarOpen = false"></div>
+  <div class="main-layout" :class="{
+    'sidebar-drawer': sidebarDrawer,
+    'notes-workspace': isNotesWorkspace,
+    'flat-list-workspace': isNotesWorkspace && settingsStore.noteListStyle === 'flat',
+  }" @keydown.esc="closeSidebar">
+    <div v-if="sidebarOpen && sidebarDrawer" class="sidebar-overlay" @click="closeSidebar"></div>
 
     <!-- Sidebar -->
-    <aside class="sidebar" :class="{ open: sidebarOpen }">
+    <aside class="sidebar" :class="{ open: sidebarOpen }" :inert="!sidebarOpen">
       <div class="sidebar-header">
         <div class="sidebar-brand">
           <NotebookPen class="sidebar-logo" :size="24" aria-hidden="true" />
@@ -22,10 +25,10 @@
           <span>笔记本</span>
           <div class="notebooks-divider-actions">
             <button type="button" class="nav-manage-icon" @click="openNotebookModal" title="新建笔记本" aria-label="新建笔记本">
-              <span aria-hidden="true">+</span>
+              <Plus :size="17" aria-hidden="true" />
             </button>
             <router-link to="/categories" class="nav-manage-icon" @click="closeSidebar" title="管理笔记本与分类">
-              <Settings :size="16" aria-hidden="true" />
+              <FolderCog :size="17" aria-hidden="true" />
               <span class="sr-only">管理笔记本与分类</span>
             </router-link>
           </div>
@@ -37,7 +40,7 @@
               :to="`/notebook/${notebook.id}`"
               class="nav-section-header notebook-link"
               :class="{ active: route.params.id === notebook.id && route.name === 'Notebook' }"
-              @click="closeSidebar"
+              @click="selectNotebook(notebook)"
             >
               <Folder class="nav-icon" :size="18" aria-hidden="true" />
               <span class="nav-text">{{ notebook.name }}</span>
@@ -73,8 +76,8 @@
               <Tags class="nav-icon" :size="18" aria-hidden="true" />
               <span class="nav-text">标签</span>
             </button>
-            <router-link to="/tags" class="nav-manage-icon" @click.stop title="管理标签">
-              <Settings :size="16" aria-hidden="true" />
+            <router-link to="/tags" class="nav-manage-icon" @click="closeSidebar" title="管理标签">
+              <Tag :size="17" aria-hidden="true" />
               <span class="sr-only">管理标签</span>
             </router-link>
           </div>
@@ -127,8 +130,9 @@
           <Menu :size="21" aria-hidden="true" />
         </button>
 
-        <!-- Mobile: show page title in top bar -->
-        <span class="topbar-title mobile-only">{{ mobileTitle }}</span>
+        <span class="topbar-title" :class="{ 'mobile-only': sidebarOpen && !sidebarDrawer }" :title="workspaceTitle">
+          {{ workspaceTitle }}
+        </span>
 
         <!-- Desktop: search bar -->
         <div class="search-bar desktop-only">
@@ -145,15 +149,16 @@
           </button>
         </div>
 
-        <!-- Mobile: search icon -->
-        <button class="btn btn-ghost btn-icon topbar-search-btn mobile-only" @click="toggleMobileSearch()" aria-label="搜索笔记" :aria-expanded="mobileSearchOpen">
-          <Search :size="20" aria-hidden="true" />
-        </button>
-
-        <router-link :to="newNoteTarget" class="btn btn-primary btn-sm desktop-only">
-          <Plus :size="17" aria-hidden="true" />
-          新建笔记
-        </router-link>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-icon topbar-search-btn mobile-only" @click="toggleMobileSearch()" aria-label="搜索笔记" :aria-expanded="mobileSearchOpen">
+            <Search :size="20" aria-hidden="true" />
+          </button>
+          <NoteListStyleMenu v-if="isNotesWorkspace" />
+          <router-link :to="newNoteTarget" class="btn btn-primary btn-sm desktop-only">
+            <Plus :size="17" aria-hidden="true" />
+            新建笔记
+          </router-link>
+        </div>
       </header>
 
       <!-- Mobile search dropdown -->
@@ -177,7 +182,11 @@
       </div>
 
       <!-- Page Content -->
-      <div class="content-area" :class="{ 'editing-mode': isMobileEditing, 'workspace-content': isNotesWorkspace }">
+      <div class="content-area" :class="{
+        'editing-mode': isMobileEditing,
+        'workspace-content': isNotesWorkspace,
+        'flat-list-layout': isNotesWorkspace && settingsStore.noteListStyle === 'flat',
+      }">
         <router-view v-if="!restoringSidebarSelection" />
       </div>
     </main>
@@ -227,12 +236,14 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   ChevronRight,
   Folder,
+  FolderCog,
   Home,
   Menu,
   NotebookPen,
   Plus,
   Search,
   Settings,
+  Tag,
   Tags,
   Trash2,
   Users,
@@ -242,6 +253,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useNotesStore, type Notebook } from '@/stores/notes';
 import { useSettingsStore } from '@/stores/settings';
 import { useModalFocus } from '@/composables/useModalFocus';
+import NoteListStyleMenu from '@/components/NoteListStyleMenu.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -250,7 +262,9 @@ const notesStore = useNotesStore();
 const settingsStore = useSettingsStore();
 const showToast = inject<(msg: string, type: string) => void>('showToast')!;
 
-const sidebarOpen = ref(window.innerWidth > 768);
+const sidebarMedia = window.matchMedia('(max-width: 1040px)');
+const sidebarDrawer = ref(sidebarMedia.matches);
+const sidebarOpen = ref(!sidebarDrawer.value);
 const showTags = ref(true);
 const searchQuery = ref('');
 const mobileSearchOpen = ref(false);
@@ -298,8 +312,7 @@ const newNoteTarget = computed(() => ({
 }));
 const { dialogRef: notebookDialogRef } = useModalFocus(showNotebookModal, closeNotebookModal);
 
-// Mobile top bar title — mirrors the page title from HomeView
-const mobileTitle = computed(() => {
+const workspaceTitle = computed(() => {
   const name = route.name;
   if (name === 'Trash') return '回收站';
   if (name === 'Search') return `搜索: ${route.query.q || ''}`;
@@ -324,9 +337,14 @@ const mobileTitle = computed(() => {
 });
 
 function closeSidebar() {
-  if (window.innerWidth <= 768) {
+  if (sidebarDrawer.value) {
     sidebarOpen.value = false;
   }
+}
+
+function updateSidebarMode(event: MediaQueryListEvent) {
+  sidebarDrawer.value = event.matches;
+  sidebarOpen.value = !event.matches;
 }
 
 function selectHome() {
@@ -377,6 +395,11 @@ function isNotebookExpanded(notebook: Notebook) {
 function toggleNotebook(notebook: Notebook) {
   sidebarState.value.expandedNotebooks[notebook.id] = !isNotebookExpanded(notebook);
   persistSidebarState();
+}
+
+function selectNotebook(notebook: Notebook) {
+  if (!isNotebookExpanded(notebook)) toggleNotebook(notebook);
+  closeSidebar();
 }
 
 function openNotebookModal() {
@@ -442,7 +465,6 @@ function clearSearch() {
 
 // Handle window resize
 function onResize() {
-  sidebarOpen.value = window.innerWidth > 768;
   updateFabPosition();
 }
 
@@ -588,6 +610,7 @@ function removeFabDragListeners() {
 }
 
 onMounted(async () => {
+  sidebarMedia.addEventListener('change', updateSidebarMode);
   window.addEventListener('resize', onResize);
   window.visualViewport?.addEventListener('resize', onResize);
   updateFabPosition();
@@ -623,6 +646,7 @@ async function restoreSidebarSelection(selection: SidebarSelection, load: Promis
 
 onBeforeUnmount(() => {
   restoringSidebarSelection.value = false;
+  sidebarMedia.removeEventListener('change', updateSidebarMode);
   window.removeEventListener('resize', onResize);
   window.visualViewport?.removeEventListener('resize', onResize);
   setNativeFabDragging(false);
@@ -748,12 +772,6 @@ watch(
 .notebooks-divider-actions {
   display: flex;
   align-items: center;
-}
-
-.notebooks-divider .nav-manage-icon > span {
-  font-size: 22px;
-  font-weight: 400;
-  line-height: 1;
 }
 
 .notebooks-divider .nav-manage-icon {
@@ -942,8 +960,8 @@ watch(
   width: 36px;
   height: 36px;
   border-radius: var(--radius-full);
-  background: var(--color-accent-gradient);
-  color: #ffffff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -992,13 +1010,56 @@ watch(
   flex-shrink: 0;
 }
 
+.notes-workspace {
+  --notes-toolbar-inset: 11px;
+}
+
+.flat-list-workspace {
+  --notes-toolbar-inset: 2px;
+}
+
+.notes-workspace .top-bar,
+.notes-workspace .mobile-search-bar {
+  padding-inline-start: var(--notes-toolbar-inset);
+}
+
+.notes-workspace .top-bar {
+  gap: var(--spacing-sm);
+}
+
+.notes-workspace .hamburger {
+  width: 44px;
+  height: 44px;
+}
+
+.topbar-title {
+  min-width: 0;
+  max-width: min(24vw, 15rem);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-bar .search-bar {
+  min-width: 0;
+}
+
+.topbar-actions {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
 .content-area {
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-lg);
 }
 
-/* Mobile overlay */
 .sidebar-overlay {
   position: fixed;
   inset: 0;
@@ -1006,30 +1067,32 @@ watch(
   z-index: 150;
 }
 
+.main-layout:not(.sidebar-drawer) .sidebar:not(.open) {
+  margin-left: calc(-1 * var(--sidebar-width));
+}
+
+.sidebar-drawer .sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  transform: translateX(-100%);
+}
+
+.sidebar-drawer .sidebar.open {
+  transform: translateX(0);
+}
+
 /* Responsive */
 @media (min-width: 769px) {
-  .sidebar:not(.open) {
-    margin-left: calc(-1 * var(--sidebar-width));
+  .content-area.workspace-content {
+    padding: 0 0 var(--spacing-md) var(--spacing-sm);
   }
 
-  .content-area.workspace-content {
-    padding: 0 0 var(--spacing-md) var(--spacing-md);
+  .content-area.flat-list-layout {
+    padding-inline-start: 0;
   }
 }
 
 @media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    transform: translateX(-100%);
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-  }
-
   .nav-item,
   .nav-section-header,
   .nav-sub-item {
@@ -1087,8 +1150,13 @@ watch(
   }
 
   .content-area.workspace-content {
+    padding-inline: var(--spacing-sm);
     min-height: 0;
     overflow: hidden;
+  }
+
+  .content-area.flat-list-layout {
+    padding: 0;
   }
 
   .content-area.editing-mode {
@@ -1101,35 +1169,27 @@ watch(
   }
 
   .top-bar {
-    background: #55A2AF;
-    color: #ffffff;
-    border-bottom: none;
+    gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-md);
-  }
-
-  .hamburger {
-    color: #ffffff;
   }
 
   .topbar-title {
     flex: 1;
+    max-width: none;
     font-size: var(--font-size-lg);
     font-weight: 700;
-    color: #ffffff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
+  .hamburger,
   .topbar-search-btn {
-    color: #ffffff;
-    font-size: 18px;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .mobile-search-bar {
     padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
-    background: #55A2AF;
-    border-bottom: none;
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-light);
   }
 
   .mobile-search-bar .search-bar {

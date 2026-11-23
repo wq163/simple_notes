@@ -59,6 +59,7 @@ const { get } = useEditor((root) => {
     featureConfigs: {
       [CrepeFeature.Placeholder]: {
         text: '首个非空行将作为标题，开始写点什么…',
+        mode: 'doc',
       },
       [CrepeFeature.ImageBlock]: {
         onUpload: props.imageUpload
@@ -455,6 +456,16 @@ defineExpose({ getMarkdown });
 }
 
 @media (max-width: 768px) {
+  .milkdown .ProseMirror h1 {
+    font-size: 1.75rem;
+    line-height: 1.3;
+  }
+
+  .milkdown .ProseMirror h2 {
+    font-size: 1.375rem;
+    line-height: 1.4;
+  }
+
   .custom-editor-wrapper {
     border: none;
     border-radius: 0;
@@ -464,11 +475,12 @@ defineExpose({ getMarkdown });
   }
   .editor-toolbar {
     order: 2;
+    justify-content: space-between;
     border-bottom: none;
     border-top: 1px solid var(--color-border);
-    padding: 8px 4px;
-    padding-bottom: env(safe-area-inset-bottom, 8px);
-    gap: 8px;
+    padding: var(--spacing-sm);
+    padding-bottom: max(var(--spacing-sm), env(safe-area-inset-bottom, 0px));
+    gap: var(--spacing-xs) 0;
   }
   .toolbar-btn {
     width: 44px;
@@ -498,7 +510,7 @@ defineExpose({ getMarkdown });
     order: -1;
     flex: 0 0 100%;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
   }
 }
 

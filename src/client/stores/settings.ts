@@ -7,14 +7,22 @@ interface SettingsState {
   defaultEditorMode: 'edit' | 'preview';
 }
 
+export type NoteListStyle = 'cards' | 'flat';
+
 export const useSettingsStore = defineStore('settings', {
-  state: (): SettingsState => ({
+  state: (): SettingsState & { noteListStyle: NoteListStyle } => ({
     theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
     fontSize: parseInt(localStorage.getItem('fontSize') || '16', 10),
     defaultEditorMode: (localStorage.getItem('defaultEditorMode') as 'edit' | 'preview') || 'edit',
+    noteListStyle: localStorage.getItem('noteListStyle') === 'flat' ? 'flat' : 'cards',
   }),
 
   actions: {
+    setNoteListStyle(style: NoteListStyle) {
+      this.noteListStyle = style;
+      localStorage.setItem('noteListStyle', style);
+    },
+
     async fetchSettings() {
       try {
         const { data } = await api.get('/settings');

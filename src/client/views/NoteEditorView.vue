@@ -1,9 +1,8 @@
 <template>
   <div class="editor-view">
     <div class="editor-header">
-      <button class="btn btn-ghost back-btn" @click="goBack">
+      <button class="btn btn-ghost back-btn" aria-label="返回笔记列表" @click="goBack">
         <ArrowLeft :size="18" aria-hidden="true" />
-        返回
       </button>
       <div class="editor-meta">
         <select v-model="selectedCategory" class="form-input category-select" aria-label="笔记分类">
@@ -11,14 +10,13 @@
             {{ categoryOptionLabel(cat) }}
           </option>
         </select>
-        <span class="title-rule">首个非空行作为标题</span>
       </div>
       <div class="editor-actions">
-        <span class="save-status" :class="`save-status-${saveStatus}`" aria-live="polite">
+        <span class="save-status" :class="`save-status-${saveStatus}`" :title="saveStatusText" aria-live="polite">
           <LoaderCircle v-if="saveStatus === 'saving'" :size="15" class="status-spinner" aria-hidden="true" />
           <CheckCircle2 v-else-if="saveStatus === 'saved'" :size="15" aria-hidden="true" />
           <AlertCircle v-else-if="saveStatus === 'error'" :size="15" aria-hidden="true" />
-          {{ saveStatusText }}
+          <span class="save-status-text">{{ saveStatusText }}</span>
         </span>
         <button class="btn btn-ghost btn-icon" @click="saveNote" title="保存笔记" aria-label="保存笔记">
           <Save :size="18" aria-hidden="true" />
@@ -393,6 +391,10 @@ defineExpose({ flushSave });
   max-width: 200px;
 }
 
+:global([data-theme="dark"]) .category-select {
+  color-scheme: dark;
+}
+
 .editor-actions {
   margin-left: auto;
   display: flex;
@@ -406,12 +408,6 @@ defineExpose({ flushSave });
   gap: var(--spacing-sm);
   flex-wrap: nowrap;
   flex-shrink: 0;
-}
-
-.title-rule {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
 }
 
 .save-status {
@@ -456,15 +452,52 @@ defineExpose({ flushSave });
   }
 
   .editor-header {
-    border-bottom: 1px solid var(--color-border-light);
+    flex-wrap: nowrap;
+    gap: var(--spacing-xs);
     padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-bg-secondary);
-    padding-bottom: var(--spacing-sm);
   }
 
   .editor-meta {
-    order: 3;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .category-select {
     width: 100%;
+    min-height: 44px;
+    padding: 0 var(--spacing-sm);
+    border: 4px solid transparent;
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-input) padding-box;
+    text-overflow: ellipsis;
+  }
+
+  .editor-actions {
+    flex: none;
+    max-width: 60%;
+    gap: var(--spacing-xs);
+  }
+
+  .back-btn,
+  .editor-actions > .btn {
+    width: 44px;
+    min-height: 44px;
+    flex-shrink: 0;
+    padding: 0;
+  }
+
+  .save-status,
+  .save-status-text {
+    min-width: 0;
+  }
+
+  .save-status > svg {
+    flex: none;
+  }
+
+  .save-status-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .editor-body {
